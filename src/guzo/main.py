@@ -15,6 +15,9 @@ from guzo.errors import DomainError
 from guzo.fleet.routes import router as fleet_router
 from guzo.identity.routes import router as auth_router
 from guzo.kv import get_redis, init_redis
+from guzo.meta import router as meta_router
+from guzo.metrics.routes import router as metrics_router
+from guzo.monitoring import init_monitoring
 from guzo.partners.routes import router as partners_router
 from guzo.payments.routes import router as payments_router
 from guzo.pricing.routes import router as quotes_router
@@ -28,6 +31,7 @@ API_VERSION = "v1"
 async def lifespan(app: FastAPI):
     configure_logging()
     settings = get_settings()
+    init_monitoring(settings)
     await init_db(settings)
     redis = init_redis(settings.redis_url)
     set_providers(build_providers(settings))
@@ -74,6 +78,8 @@ def create_app() -> FastAPI:
         fleet_router,
         partners_router,
         audit_router,
+        metrics_router,
+        meta_router,
         payments_router,
     ):
         v1.include_router(router)

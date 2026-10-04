@@ -41,5 +41,21 @@ services:
     environment: *app-env
     depends_on: *app-deps
 
+  # One-off backup: docker compose run --rm backup
+  # Restore test:    docker compose run --rm backup /scripts/restore_test.sh /backups
+  backup:
+    image: mongo:8.0
+    profiles: ["ops"]
+    entrypoint: ["bash"]
+    command: ["/scripts/backup_mongo.sh", "/backups"]
+    environment:
+      GUZO_MONGO_URL: mongodb://mongo:27017/?directConnection=true
+      GUZO_MONGO_DB: ${GUZO_MONGO_DB:-guzo}
+    volumes:
+      - ./scripts:/scripts:ro
+      - ${GUZO_BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      mongo: {condition: service_healthy}
+
 volumes:
   mongo-data:

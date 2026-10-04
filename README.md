@@ -47,6 +47,7 @@ M0 exit test: it books, pays through the fake provider and reaches every booking
 | `fleet` | Driver vehicles |
 | `audit` | Append-only log of operations actions |
 | `web` | Browser pages served by the API: the booking link (`/book`), the ops console (`/ops`) and a test checkout used with the fake payment provider |
+| `metrics` | Weekly demand and service numbers for the ops review |
 | `providers` | Interfaces for payments, messaging, flight status and identity checks, plus fakes |
 
 Rules worth knowing before changing things:
@@ -57,6 +58,25 @@ Rules worth knowing before changing things:
 - Booking code never calls a provider for side effects. It emits an event; a handler in
   `events/handlers.py` sends the message or refund. Handlers must be idempotent.
 - All time goes through `guzo.common.clock.utcnow()` and is stored in UTC.
+
+## Environments
+
+`GUZO_ENV` is `dev`, `test`, `staging` or `production`; anything else refuses to start.
+Give staging and production their own `GUZO_MONGO_URL`, `GUZO_MONGO_DB`, `GUZO_JWT_SECRET`
+and payment credentials. Production also refuses to start with the default secret, a fake
+payment or SMS provider, or a non-https `GUZO_PUBLIC_BASE_URL`.
+
+## Running it in production
+
+- **Errors:** set `GUZO_SENTRY_DSN` for the API and the worker.
+- **Uptime:** point a check at `/health`; it fails if Mongo or Redis is unreachable.
+- **Backups:** `scripts/backup_mongo.sh <dir>` writes a compressed dump and keeps 14 days
+  (`GUZO_BACKUP_KEEP_DAYS`). Schedule it daily and copy the directory off the machine.
+- **Restore test:** `scripts/restore_test.sh <dir>` restores the newest dump into a scratch
+  database, prints the counts and drops it. Run it monthly.
+- **Old app versions:** apps call `/v1/meta/client`; raise `GUZO_MIN_ANDROID_VERSION` or
+  `GUZO_MIN_IOS_VERSION` to make older builds update.
+- **Weekly numbers:** `/v1/ops/metrics/weekly`, also a tab in the ops console.
 
 ## API contract
 

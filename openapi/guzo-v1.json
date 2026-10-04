@@ -433,6 +433,24 @@
         "title": "BookingStatus",
         "type": "string"
       },
+      "ClientStatus": {
+        "properties": {
+          "min_supported_version": {
+            "title": "Min Supported Version",
+            "type": "string"
+          },
+          "update_required": {
+            "title": "Update Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "min_supported_version",
+          "update_required"
+        ],
+        "title": "ClientStatus",
+        "type": "object"
+      },
       "ConfirmResponse": {
         "properties": {
           "booking": {
@@ -1015,6 +1033,14 @@
           "landmark"
         ],
         "title": "PlaceKind",
+        "type": "string"
+      },
+      "Platform": {
+        "enum": [
+          "android",
+          "ios"
+        ],
+        "title": "Platform",
         "type": "string"
       },
       "PricingStrategyName": {
@@ -1773,6 +1799,134 @@
           "active"
         ],
         "title": "VehicleResponse",
+        "type": "object"
+      },
+      "WeekMetrics": {
+        "properties": {
+          "arrivals": {
+            "title": "Arrivals",
+            "type": "integer"
+          },
+          "bookers": {
+            "title": "Bookers",
+            "type": "integer"
+          },
+          "bookings_created": {
+            "title": "Bookings Created",
+            "type": "integer"
+          },
+          "bookings_paid": {
+            "title": "Bookings Paid",
+            "type": "integer"
+          },
+          "cancellation_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Rate"
+          },
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "integer"
+          },
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "median_minutes_to_assign": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Minutes To Assign"
+          },
+          "no_show": {
+            "title": "No Show",
+            "type": "integer"
+          },
+          "no_show_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Show Rate"
+          },
+          "on_time_arrivals": {
+            "title": "On Time Arrivals",
+            "type": "integer"
+          },
+          "on_time_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "On Time Rate"
+          },
+          "paid_by_channel": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Paid By Channel",
+            "type": "object"
+          },
+          "paid_by_product": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Paid By Product",
+            "type": "object"
+          },
+          "repeat_bookers": {
+            "title": "Repeat Bookers",
+            "type": "integer"
+          },
+          "trips_scheduled": {
+            "title": "Trips Scheduled",
+            "type": "integer"
+          },
+          "week_start": {
+            "format": "date",
+            "title": "Week Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "week_start",
+          "bookings_created",
+          "bookings_paid",
+          "paid_by_product",
+          "paid_by_channel",
+          "bookers",
+          "repeat_bookers",
+          "trips_scheduled",
+          "completed",
+          "cancelled",
+          "no_show",
+          "cancellation_rate",
+          "no_show_rate",
+          "arrivals",
+          "on_time_arrivals",
+          "on_time_rate",
+          "median_minutes_to_assign"
+        ],
+        "title": "WeekMetrics",
         "type": "object"
       },
       "ZoneBody": {
@@ -2883,6 +3037,58 @@
         ]
       }
     },
+    "/v1/meta/client": {
+      "get": {
+        "description": "Apps call this on start. `update_required` means this build must be updated to go on.",
+        "operationId": "client_status",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Platform"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d+(\\.\\d+){0,2}$",
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Client Status",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
     "/v1/ops/audit": {
       "get": {
         "description": "Newest first. Filter by the record the actions were taken on.",
@@ -3909,6 +4115,71 @@
           }
         ],
         "summary": "Verify Driver",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/metrics/weekly": {
+      "get": {
+        "description": "This week and the weeks before it, newest first.",
+        "operationId": "get_weekly_metrics",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "city_id",
+            "required": false,
+            "schema": {
+              "default": "addis",
+              "title": "City Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "weeks",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 26,
+              "minimum": 1,
+              "title": "Weeks",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WeekMetrics"
+                  },
+                  "title": "Response Get Weekly Metrics",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Weekly Metrics",
         "tags": [
           "ops"
         ]
