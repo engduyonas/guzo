@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - name: Start Mongo (replica set) and Redis
+        run: docker compose up -d --wait mongo redis
+      - run: uv run pytest
+
+  dart-client:
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - run: scripts/generate_dart_client.sh
+      - name: Check the generated client compiles
+        run: dart analyze --no-fatal-warnings
+        working-directory: clients/dart
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guzo-dart-client
+          path: clients/dart
+
+  # `flutter test` joins this workflow with the Flutter app in M1.
