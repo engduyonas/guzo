@@ -15,6 +15,7 @@ from guzo.catalog.models import (
     PricingStrategyName,
     Product,
     ProductPolicy,
+    VehicleCapacity,
     VehicleClass,
     Zone,
     ZonePrice,
@@ -33,6 +34,8 @@ BOLE_AIRPORT = Place(
     zone_id="bole",
 )
 ZONES = {"bole": "Bole", "kazanchis": "Kazanchis", "piassa": "Piassa", "cmc": "CMC"}
+# Riders and bags per class. Starting points; ops can change them.
+CAPACITIES = {VehicleClass.SEDAN: (3, 3), VehicleClass.MINIVAN: (6, 6), VehicleClass.SUV: (4, 4)}
 EXAMPLE_PRICES_ETB = {
     VehicleClass.SEDAN: {"bole": 800, "kazanchis": 1200, "piassa": 1500, "cmc": 1500},
     VehicleClass.MINIVAN: {"bole": 1300, "kazanchis": 1800, "piassa": 2200, "cmc": 2200},
@@ -58,6 +61,14 @@ async def seed_catalog() -> None:
     for code, name in ZONES.items():
         await _upsert(
             Zone, {"city_id": ADDIS, "code": code}, Zone(code=code, city_id=ADDIS, name=name)
+        )
+    for vehicle_class, (seats, bags) in CAPACITIES.items():
+        await _upsert(
+            VehicleCapacity,
+            {"city_id": ADDIS, "vehicle_class": vehicle_class.value},
+            VehicleCapacity(
+                city_id=ADDIS, vehicle_class=vehicle_class, max_seats=seats, max_bags=bags
+            ),
         )
     await _upsert(
         KnownPlace,

@@ -19,6 +19,7 @@ class User(Document):
     phone: str | None = None  # E.164; bookers and drivers
     email: str | None = None  # ops only
     name: str | None = None
+    photo_url: str | None = None  # drivers; shown to riders before pickup
     password_hash: str | None = None
     totp_secret: str | None = None
     # Bookers: phone confirmed. Drivers: vetted by ops. Ops: always true.
@@ -50,6 +51,7 @@ class UserResponse(BaseModel):
     phone: str | None
     email: str | None
     name: str | None
+    photo_url: str | None
     is_verified: bool
     rating: float | None
     total_ratings: int

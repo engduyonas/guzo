@@ -94,6 +94,19 @@ class Product(Document):
         indexes = [IndexModel([("city_id", 1), ("code", 1)], unique=True)]
 
 
+class VehicleCapacity(Document):
+    """Largest party a vehicle class takes in a city. No row means no limit is enforced."""
+
+    city_id: str
+    vehicle_class: VehicleClass
+    max_seats: int = Field(ge=1)
+    max_bags: int = Field(ge=0)
+
+    class Settings:
+        name = "vehicle_capacities"
+        indexes = [IndexModel([("city_id", 1), ("vehicle_class", 1)], unique=True)]
+
+
 class ZonePrice(Document):
     """Fixed price between the city's airport and a zone, per vehicle class."""
 

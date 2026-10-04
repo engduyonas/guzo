@@ -8,12 +8,10 @@ from guzo.bookings import service
 from guzo.bookings.models import Assignment, Booking, Rider, StatusChange
 from guzo.bookings.state_machine import Actor, BookingStatus
 from guzo.catalog.models import Place, VehicleClass
-from guzo.common.ids import object_id
 from guzo.common.money import Money
 from guzo.errors import NotFound
 from guzo.identity.deps import Booker, Driver, Ops
-from guzo.identity.models import Role, User, UserResponse
-from guzo.payments.models import Payment, PaymentStatus
+from guzo.payments.models import Payment, PaymentStatus, Refund, RefundStatus
 from guzo.pricing.models import FlightInfo
 
 S = BookingStatus
@@ -237,12 +235,28 @@ async def ops_no_show(booking_id: str, user: Ops) -> BookingResponse:
     return _out(await service.mark_no_show(booking_id, actor=Actor.OPS, by=user))
 
 
-@ops_router.post("/drivers/{driver_id}/verify")
-async def verify_driver(driver_id: str, user: Ops) -> UserResponse:
-    """Mark a driver as vetted. Only verified drivers can be assigned."""
-    driver = await User.get(object_id(driver_id, "driver"))
-    if driver is None or driver.role != Role.DRIVER:
-        raise NotFound("driver not found")
-    driver.is_verified = True
-    await driver.save()
-    return UserResponse.from_user(driver)
+class RefundResponse(BaseModel):
+    id: str
+    amount: Money
+    reason: str
+    status: RefundStatus
+
+
+class BookingMoney(BaseModel):
+    payments: list[PaymentResponse]
+    refunds: list[RefundResponse]
+
+
+@ops_router.get("/bookings/{booking_id}/money")
+async def booking_money(booking_id: str, user: Ops) -> BookingMoney:
+    """Every payment attempt and refund for a booking."""
+    booking = await service.get_booking(booking_id)
+    payments = await Payment.find(Payment.booking_id == str(booking.id)).to_list()
+    refunds = await Refund.find(Refund.booking_id == str(booking.id)).to_list()
+    return BookingMoney(
+        payments=[PaymentResponse.from_payment(p) for p in payments],
+        refunds=[
+            RefundResponse(id=str(r.id), amount=r.amount, reason=r.reason, status=r.status)
+            for r in refunds
+        ],
+    )

@@ -7,8 +7,8 @@ from guzo.common.ids import object_id
 from guzo.common.money import Money
 from guzo.errors import NotFound
 from guzo.identity.deps import Booker
-from guzo.pricing.models import Quote, QuoteRequest
-from guzo.pricing.service import create_quote
+from guzo.pricing.models import Quote, QuoteRequest, TripRequest
+from guzo.pricing.service import VehicleOption, create_quote, vehicle_options
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
 
@@ -24,6 +24,12 @@ class QuoteResponse(BaseModel):
         return cls(
             id=str(quote.id), request=quote.request, price=quote.price, expires_at=quote.expires_at
         )
+
+
+@router.post("/options")
+async def quote_options(body: TripRequest) -> list[VehicleOption]:
+    """Prices for each vehicle class that fits the party. Public, and nothing is saved."""
+    return await vehicle_options(body)
 
 
 @router.post("", status_code=201)

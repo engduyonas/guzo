@@ -4,11 +4,14 @@ from beanie import init_beanie
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from guzo.audit.models import AuditEntry
 from guzo.bookings.models import Booking
-from guzo.catalog.models import City, KnownPlace, Product, Zone, ZonePrice
+from guzo.catalog.models import City, KnownPlace, Product, VehicleCapacity, Zone, ZonePrice
 from guzo.config import Settings
 from guzo.events.models import OutboxEvent
+from guzo.fleet.models import Vehicle
 from guzo.identity.models import User
+from guzo.partners.models import Partner
 from guzo.payments.models import LedgerEntry, Payment, Refund
 from guzo.pricing.models import Quote
 
@@ -19,12 +22,16 @@ DOCUMENT_MODELS = [
     KnownPlace,
     Product,
     ZonePrice,
+    VehicleCapacity,
     Quote,
     Booking,
     Payment,
     Refund,
     LedgerEntry,
     OutboxEvent,
+    Partner,
+    Vehicle,
+    AuditEntry,
 ]
 
 _client: AsyncMongoClient | None = None

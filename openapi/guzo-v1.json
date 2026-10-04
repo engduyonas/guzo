@@ -77,6 +77,46 @@
         "title": "Assignment",
         "type": "object"
       },
+      "AuditEntryResponse": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_type": {
+            "title": "Target Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor_id",
+          "action",
+          "target_type",
+          "target_id",
+          "details",
+          "at"
+        ],
+        "title": "AuditEntryResponse",
+        "type": "object"
+      },
       "BookingCreate": {
         "properties": {
           "partner_code": {
@@ -109,6 +149,30 @@
           "riders"
         ],
         "title": "BookingCreate",
+        "type": "object"
+      },
+      "BookingMoney": {
+        "properties": {
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentResponse"
+            },
+            "title": "Payments",
+            "type": "array"
+          },
+          "refunds": {
+            "items": {
+              "$ref": "#/components/schemas/RefundResponse"
+            },
+            "title": "Refunds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "payments",
+          "refunds"
+        ],
+        "title": "BookingMoney",
         "type": "object"
       },
       "BookingResponse": {
@@ -305,6 +369,70 @@
         "title": "Currency",
         "type": "string"
       },
+      "DriverResponse": {
+        "properties": {
+          "driver": {
+            "$ref": "#/components/schemas/UserResponse"
+          },
+          "vehicles": {
+            "items": {
+              "$ref": "#/components/schemas/VehicleResponse"
+            },
+            "title": "Vehicles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "driver",
+          "vehicles"
+        ],
+        "title": "DriverResponse",
+        "type": "object"
+      },
+      "DriverUpdate": {
+        "properties": {
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "maxLength": 2083,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          }
+        },
+        "title": "DriverUpdate",
+        "type": "object"
+      },
       "FlightInfo": {
         "properties": {
           "estimated_arrival": {
@@ -499,6 +627,182 @@
           "code"
         ],
         "title": "OtpVerify",
+        "type": "object"
+      },
+      "PartnerAttribution": {
+        "description": "What a partner's code has brought in. Commission is owed on completed trips only.",
+        "properties": {
+          "bookings_by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Bookings By Status",
+            "type": "object"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "commission_due": {
+            "items": {
+              "$ref": "#/components/schemas/Money"
+            },
+            "title": "Commission Due",
+            "type": "array"
+          },
+          "completed_fares": {
+            "items": {
+              "$ref": "#/components/schemas/Money"
+            },
+            "title": "Completed Fares",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "bookings_by_status",
+          "completed_fares",
+          "commission_due"
+        ],
+        "title": "PartnerAttribution",
+        "type": "object"
+      },
+      "PartnerCreate": {
+        "properties": {
+          "code": {
+            "pattern": "^[A-Za-z0-9_-]{3,40}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "commission_pct": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Commission Pct",
+            "type": "integer"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PartnerKind"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "kind",
+          "name",
+          "commission_pct"
+        ],
+        "title": "PartnerCreate",
+        "type": "object"
+      },
+      "PartnerKind": {
+        "enum": [
+          "hotel",
+          "host",
+          "agency"
+        ],
+        "title": "PartnerKind",
+        "type": "string"
+      },
+      "PartnerPublic": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PartnerKind"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "kind",
+          "name"
+        ],
+        "title": "PartnerPublic",
+        "type": "object"
+      },
+      "PartnerResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "commission_pct": {
+            "title": "Commission Pct",
+            "type": "integer"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PartnerKind"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "kind",
+          "name",
+          "commission_pct",
+          "active"
+        ],
+        "title": "PartnerResponse",
+        "type": "object"
+      },
+      "PartnerUpdate": {
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "commission_pct": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commission Pct"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "PartnerUpdate",
         "type": "object"
       },
       "PaymentResponse": {
@@ -698,8 +1002,63 @@
         "title": "ProductResponse",
         "type": "object"
       },
+      "ProductUpdate": {
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vehicle_classes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/VehicleClass"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Classes"
+          }
+        },
+        "title": "ProductUpdate",
+        "type": "object"
+      },
       "QuoteRequest": {
-        "description": "Product + time + places: everything a pricing strategy may need.",
+        "description": "Everything a pricing strategy may need.",
         "properties": {
           "bags": {
             "default": 0,
@@ -803,6 +1162,40 @@
         },
         "title": "Reason",
         "type": "object"
+      },
+      "RefundResponse": {
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RefundStatus"
+          }
+        },
+        "required": [
+          "id",
+          "amount",
+          "reason",
+          "status"
+        ],
+        "title": "RefundResponse",
+        "type": "object"
+      },
+      "RefundStatus": {
+        "enum": [
+          "pending",
+          "succeeded"
+        ],
+        "title": "RefundStatus",
+        "type": "string"
       },
       "Rider": {
         "description": "Someone who gets picked up. Riders do not need an account or the app.",
@@ -917,6 +1310,63 @@
         "title": "TokenResponse",
         "type": "object"
       },
+      "TripRequest": {
+        "description": "Product + time + places + party size, before a vehicle is chosen.",
+        "properties": {
+          "bags": {
+            "default": 0,
+            "maximum": 50.0,
+            "minimum": 0.0,
+            "title": "Bags",
+            "type": "integer"
+          },
+          "city_id": {
+            "default": "addis",
+            "title": "City Id",
+            "type": "string"
+          },
+          "dropoff": {
+            "$ref": "#/components/schemas/Place"
+          },
+          "flight": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlightInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pickup": {
+            "$ref": "#/components/schemas/Place"
+          },
+          "product_code": {
+            "title": "Product Code",
+            "type": "string"
+          },
+          "scheduled_at": {
+            "format": "date-time",
+            "title": "Scheduled At",
+            "type": "string"
+          },
+          "seats": {
+            "default": 1,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Seats",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "product_code",
+          "pickup",
+          "dropoff",
+          "scheduled_at"
+        ],
+        "title": "TripRequest",
+        "type": "object"
+      },
       "UserResponse": {
         "properties": {
           "created_at": {
@@ -965,6 +1415,17 @@
             ],
             "title": "Phone"
           },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
           "rating": {
             "anyOf": [
               {
@@ -990,6 +1451,7 @@
           "phone",
           "email",
           "name",
+          "photo_url",
           "is_verified",
           "rating",
           "total_ratings",
@@ -1038,6 +1500,37 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VehicleCapacityBody": {
+        "properties": {
+          "city_id": {
+            "default": "addis",
+            "title": "City Id",
+            "type": "string"
+          },
+          "max_bags": {
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Max Bags",
+            "type": "integer"
+          },
+          "max_seats": {
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Max Seats",
+            "type": "integer"
+          },
+          "vehicle_class": {
+            "$ref": "#/components/schemas/VehicleClass"
+          }
+        },
+        "required": [
+          "vehicle_class",
+          "max_seats",
+          "max_bags"
+        ],
+        "title": "VehicleCapacityBody",
+        "type": "object"
+      },
       "VehicleClass": {
         "enum": [
           "sedan",
@@ -1046,6 +1539,234 @@
         ],
         "title": "VehicleClass",
         "type": "string"
+      },
+      "VehicleCreate": {
+        "properties": {
+          "color": {
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Color",
+            "type": "string"
+          },
+          "make": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Make",
+            "type": "string"
+          },
+          "model": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "plate": {
+            "maxLength": 20,
+            "minLength": 2,
+            "title": "Plate",
+            "type": "string"
+          },
+          "vehicle_class": {
+            "$ref": "#/components/schemas/VehicleClass"
+          }
+        },
+        "required": [
+          "plate",
+          "make",
+          "model",
+          "color",
+          "vehicle_class"
+        ],
+        "title": "VehicleCreate",
+        "type": "object"
+      },
+      "VehicleOption": {
+        "properties": {
+          "max_bags": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Bags"
+          },
+          "max_seats": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Seats"
+          },
+          "price": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "vehicle_class": {
+            "$ref": "#/components/schemas/VehicleClass"
+          }
+        },
+        "required": [
+          "vehicle_class",
+          "max_seats",
+          "max_bags",
+          "price"
+        ],
+        "title": "VehicleOption",
+        "type": "object"
+      },
+      "VehicleResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "color": {
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Color",
+            "type": "string"
+          },
+          "driver_id": {
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "make": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Make",
+            "type": "string"
+          },
+          "model": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "plate": {
+            "maxLength": 20,
+            "minLength": 2,
+            "title": "Plate",
+            "type": "string"
+          },
+          "vehicle_class": {
+            "$ref": "#/components/schemas/VehicleClass"
+          }
+        },
+        "required": [
+          "plate",
+          "make",
+          "model",
+          "color",
+          "vehicle_class",
+          "id",
+          "driver_id",
+          "active"
+        ],
+        "title": "VehicleResponse",
+        "type": "object"
+      },
+      "ZoneBody": {
+        "properties": {
+          "city_id": {
+            "default": "addis",
+            "title": "City Id",
+            "type": "string"
+          },
+          "code": {
+            "pattern": "^[a-z0-9_]{2,40}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "ZoneBody",
+        "type": "object"
+      },
+      "ZonePriceBody": {
+        "properties": {
+          "city_id": {
+            "default": "addis",
+            "title": "City Id",
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "product_code": {
+            "title": "Product Code",
+            "type": "string"
+          },
+          "vehicle_class": {
+            "$ref": "#/components/schemas/VehicleClass"
+          },
+          "zone_id": {
+            "title": "Zone Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_code",
+          "zone_id",
+          "vehicle_class",
+          "price"
+        ],
+        "title": "ZonePriceBody",
+        "type": "object"
+      },
+      "ZonePriceResponse": {
+        "properties": {
+          "city_id": {
+            "default": "addis",
+            "title": "City Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "product_code": {
+            "title": "Product Code",
+            "type": "string"
+          },
+          "vehicle_class": {
+            "$ref": "#/components/schemas/VehicleClass"
+          },
+          "zone_id": {
+            "title": "Zone Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_code",
+          "zone_id",
+          "vehicle_class",
+          "price",
+          "id"
+        ],
+        "title": "ZonePriceResponse",
+        "type": "object"
       },
       "ZoneResponse": {
         "properties": {
@@ -2014,6 +2735,81 @@
         ]
       }
     },
+    "/v1/ops/audit": {
+      "get": {
+        "description": "Newest first. Filter by the record the actions were taken on.",
+        "operationId": "list_audit_entries",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "target_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEntryResponse"
+                  },
+                  "title": "Response List Audit Entries",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Audit Entries",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
     "/v1/ops/bookings": {
       "get": {
         "operationId": "list_bookings",
@@ -2233,6 +3029,54 @@
         ]
       }
     },
+    "/v1/ops/bookings/{booking_id}/money": {
+      "get": {
+        "description": "Every payment attempt and refund for a booking.",
+        "operationId": "booking_money",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "booking_id",
+            "required": true,
+            "schema": {
+              "title": "Booking Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingMoney"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Booking Money",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
     "/v1/ops/bookings/{booking_id}/no-show": {
       "post": {
         "operationId": "ops_no_show",
@@ -2337,6 +3181,543 @@
         ]
       }
     },
+    "/v1/ops/catalog/products/{code}": {
+      "patch": {
+        "description": "Change a product's policy or vehicle options. Bookings already made keep their terms.",
+        "operationId": "update_product",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "city_id",
+            "required": false,
+            "schema": {
+              "default": "addis",
+              "title": "City Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Product",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/catalog/vehicle-capacities": {
+      "put": {
+        "description": "How many riders and bags a vehicle class takes. Quotes refuse anything larger.",
+        "operationId": "set_vehicle_capacity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleCapacityBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleCapacityBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Vehicle Capacity",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/catalog/zone-prices": {
+      "get": {
+        "operationId": "list_zone_prices",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "city_id",
+            "required": false,
+            "schema": {
+              "default": "addis",
+              "title": "City Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "product_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Product Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ZonePriceResponse"
+                  },
+                  "title": "Response List Zone Prices",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Zone Prices",
+        "tags": [
+          "ops"
+        ]
+      },
+      "put": {
+        "description": "Publish or change the fixed price for a zone and vehicle class.",
+        "operationId": "set_zone_price",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZonePriceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZonePriceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Zone Price",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/catalog/zone-prices/{price_id}": {
+      "delete": {
+        "description": "Stop selling a zone and vehicle class. Existing quotes and bookings keep their price.",
+        "operationId": "delete_zone_price",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "price_id",
+            "required": true,
+            "schema": {
+              "title": "Price Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Zone Price",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/catalog/zones": {
+      "put": {
+        "operationId": "set_zone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Zone",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/drivers": {
+      "get": {
+        "operationId": "list_drivers",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "verified",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Verified"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DriverResponse"
+                  },
+                  "title": "Response List Drivers",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Drivers",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/drivers/{driver_id}": {
+      "patch": {
+        "operationId": "update_driver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "title": "Driver Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Driver",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/drivers/{driver_id}/vehicles": {
+      "post": {
+        "operationId": "add_vehicle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "title": "Driver Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Vehicle",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/drivers/{driver_id}/vehicles/{vehicle_id}": {
+      "delete": {
+        "description": "Take a vehicle out of service. It stays on past bookings.",
+        "operationId": "retire_vehicle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "title": "Driver Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Retire Vehicle",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
     "/v1/ops/drivers/{driver_id}/verify": {
       "post": {
         "description": "Mark a driver as vetted. Only verified drivers can be assigned.",
@@ -2382,6 +3763,231 @@
         "summary": "Verify Driver",
         "tags": [
           "ops"
+        ]
+      }
+    },
+    "/v1/ops/partners": {
+      "get": {
+        "operationId": "list_partners",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PartnerResponse"
+                  },
+                  "title": "Response List Partners",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Partners",
+        "tags": [
+          "partners",
+          "ops"
+        ]
+      },
+      "post": {
+        "operationId": "create_partner",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Partner",
+        "tags": [
+          "partners",
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/partners/{code}": {
+      "patch": {
+        "operationId": "update_partner",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartnerUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Partner",
+        "tags": [
+          "partners",
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/partners/{code}/attribution": {
+      "get": {
+        "operationId": "partner_attribution",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerAttribution"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Partner Attribution",
+        "tags": [
+          "partners",
+          "ops"
+        ]
+      }
+    },
+    "/v1/partners/{code}": {
+      "get": {
+        "description": "Lets a booking page check a referral code and show who it belongs to.",
+        "operationId": "get_partner",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Partner",
+        "tags": [
+          "partners"
         ]
       }
     },
@@ -2462,6 +4068,52 @@
           }
         ],
         "summary": "Post Quote",
+        "tags": [
+          "quotes"
+        ]
+      }
+    },
+    "/v1/quotes/options": {
+      "post": {
+        "description": "Prices for each vehicle class that fits the party. Public, and nothing is saved.",
+        "operationId": "quote_options",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TripRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VehicleOption"
+                  },
+                  "title": "Response Quote Options",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Quote Options",
         "tags": [
           "quotes"
         ]

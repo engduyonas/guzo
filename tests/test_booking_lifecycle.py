@@ -10,7 +10,7 @@ from guzo.events.outbox import deliver_pending
 from guzo.payments import ledger
 from guzo.payments.models import LedgerEntry, Refund
 
-from .conftest import RIDERS, SEDAN_KAZANCHIS, quote_body
+from .conftest import RIDERS, SEDAN_KAZANCHIS, VEHICLE, quote_body
 
 FARE = SEDAN_KAZANCHIS.amount_minor
 
@@ -171,6 +171,7 @@ async def test_driver_dropout_returns_booking_to_confirmed(flow, booker, ops, dr
     assert (await driver.post(f"/v1/driver/bookings/{booking['id']}/start")).status_code == 404
     other = await sign_in("+251922333444", role="driver", name="Kebede")
     await ops.post(f"/v1/ops/drivers/{other.id}/verify")
+    await ops.post(f"/v1/ops/drivers/{other.id}/vehicles", VEHICLE | {"plate": "AA 3-C99999"})
     again = await ops.post(f"/v1/ops/bookings/{booking['id']}/assign", {"driver_id": other.id})
     assert again.json()["assignment"]["driver_id"] == other.id
 

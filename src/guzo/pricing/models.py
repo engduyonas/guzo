@@ -15,18 +15,23 @@ class FlightInfo(BaseModel):
     estimated_arrival: AwareDatetime | None = None
 
 
-class QuoteRequest(BaseModel):
-    """Product + time + places: everything a pricing strategy may need."""
+class TripRequest(BaseModel):
+    """Product + time + places + party size, before a vehicle is chosen."""
 
     product_code: str
     city_id: str = "addis"
     pickup: Place
     dropoff: Place
     scheduled_at: AwareDatetime
-    vehicle_class: VehicleClass
     seats: int = Field(default=1, ge=1, le=50)
     bags: int = Field(default=0, ge=0, le=50)
     flight: FlightInfo | None = None
+
+
+class QuoteRequest(TripRequest):
+    """Everything a pricing strategy may need."""
+
+    vehicle_class: VehicleClass
 
 
 class Quote(Document):
