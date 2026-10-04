@@ -1,0 +1,45 @@
+services:
+  mongo:
+    image: mongo:8.0
+    # A single-node replica set: multi-document transactions need one.
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports: ["27017:27017"]
+    volumes: ["mongo-data:/data/db"]
+    healthcheck:
+      # Initiates the replica set on first start, then reports healthy once it is primary.
+      test: >
+        mongosh --quiet --eval "
+        try { rs.status() } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]}) }
+        if (!db.hello().isWritablePrimary) quit(1)"
+      interval: 5s
+      timeout: 10s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 12
+
+  api:
+    build: .
+    profiles: ["app"]
+    ports: ["8000:8000"]
+    environment: &app-env
+      GUZO_MONGO_URL: mongodb://mongo:27017/?directConnection=true
+      GUZO_REDIS_URL: redis://redis:6379/0
+    depends_on: &app-deps
+      mongo: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  worker:
+    build: .
+    profiles: ["app"]
+    command: ["arq", "guzo.worker.WorkerSettings"]
+    environment: *app-env
+    depends_on: *app-deps
+
+volumes:
+  mongo-data:
