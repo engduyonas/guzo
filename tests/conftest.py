@@ -147,6 +147,8 @@ async def driver(sign_in, ops) -> Session:
     session = await sign_in("0911234567", role="driver", name="Tadesse Bekele")
     response = await ops.post(f"/v1/ops/drivers/{session.id}/verify")
     assert response.status_code == 200, response.text
+    response = await ops.post(f"/v1/ops/drivers/{session.id}/vehicles", VEHICLE)
+    assert response.status_code == 201, response.text
     return session
 
 
@@ -164,11 +166,19 @@ def quote_body(scheduled_at: datetime, /, **overrides) -> dict:
         "scheduled_at": scheduled_at.isoformat(),
         "vehicle_class": "sedan",
         "seats": 3,
-        "bags": 4,
+        "bags": 3,
         "flight": {"number": "ET501", "scheduled_arrival": scheduled_at.isoformat()},
     }
     return {**body, **overrides}
 
+
+VEHICLE = {
+    "plate": "aa 2-b12345",
+    "make": "Toyota",
+    "model": "Corolla",
+    "color": "White",
+    "vehicle_class": "sedan",
+}
 
 RIDERS = [
     {"name": "Almaz Tesfaye", "phone": "+251911000111"},

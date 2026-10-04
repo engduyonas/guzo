@@ -5,6 +5,7 @@ from typing import Any
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.errors import DuplicateKeyError
 
+from guzo.audit import service as audit
 from guzo.bookings import policies
 from guzo.bookings.models import Assignment, Booking, Rider, StatusChange
 from guzo.bookings.state_machine import Actor, BookingStatus, check_transition
@@ -15,7 +16,9 @@ from guzo.config import get_settings
 from guzo.db import in_transaction
 from guzo.errors import Conflict, Forbidden, NotFound, Unavailable, Unprocessable
 from guzo.events.outbox import emit
+from guzo.fleet.models import Vehicle
 from guzo.identity.models import Role, User
+from guzo.partners.models import Partner, normalize_code
 from guzo.payments.models import Payment, PaymentStatus
 from guzo.payments.refunds import request_refund
 from guzo.pricing.models import Quote
@@ -118,6 +121,13 @@ async def create_booking(
         )
         if product is None or not product.active:
             raise NotFound("product not found", code="unknown_product")
+        partner = None
+        if partner_code:
+            partner = await Partner.find_one(
+                {"code": normalize_code(partner_code), "active": True}, session=session
+            )
+            if partner is None:
+                raise Unprocessable("unknown partner code", code="unknown_partner")
         booking = Booking(
             product_code=request.product_code,
             city_id=request.city_id,
@@ -133,7 +143,8 @@ async def create_booking(
             price=quote.price,
             policy=product.policy,
             quote_id=quote_id,
-            partner_code=partner_code,
+            partner_code=partner.code if partner else None,
+            partner_commission_pct=partner.commission_pct if partner else None,
             status=S.DRAFT,
             status_history=[
                 StatusChange(
@@ -240,6 +251,15 @@ async def cancel_booking(booking_id: str, *, actor: Actor, by: User, reason: str
             booking.policy, booking.price, booking.scheduled_at, utcnow()
         )
         await request_refund(session, booking_id=booking_id, amount=refund, reason="cancelled")
+        if actor == Actor.OPS:
+            await audit.record(
+                by,
+                "booking.cancel",
+                "booking",
+                booking_id,
+                {"reason": reason, "refund": refund.model_dump(mode="json")},
+                session=session,
+            )
         return updated
 
     return await in_transaction(txn)
@@ -255,8 +275,11 @@ async def assign_driver(
             raise NotFound("driver not found", code="unknown_driver")
         if not driver.is_verified:
             raise Unprocessable("this driver has not been verified", code="driver_unverified")
-        assignment = Assignment(driver_id=driver_id, vehicle_id=vehicle_id, assigned_at=utcnow())
-        return await apply_transition(
+        vehicle = await _vehicle_for(session, driver_id, vehicle_id)
+        assignment = Assignment(
+            driver_id=driver_id, vehicle_id=str(vehicle.id), assigned_at=utcnow()
+        )
+        updated = await apply_transition(
             session,
             booking,
             S.ASSIGNED,
@@ -264,8 +287,37 @@ async def assign_driver(
             by=str(ops.id),
             set_fields={"assignment": assignment.model_dump(mode="python")},
         )
+        await audit.record(
+            ops,
+            "booking.assign",
+            "booking",
+            booking_id,
+            {"driver_id": driver_id, "vehicle_id": str(vehicle.id), "plate": vehicle.plate},
+            session=session,
+        )
+        return updated
 
     return await in_transaction(txn)
+
+
+async def _vehicle_for(
+    session: AsyncClientSession, driver_id: str, vehicle_id: str | None
+) -> Vehicle:
+    """The car for a job: the one named, or the driver's only active car."""
+    vehicles = await Vehicle.find(
+        {"driver_id": driver_id, "active": True}, session=session
+    ).to_list()
+    if vehicle_id is not None:
+        chosen = next((v for v in vehicles if str(v.id) == vehicle_id), None)
+        if chosen is None:
+            raise NotFound("vehicle not found for this driver", code="unknown_vehicle")
+        return chosen
+    if len(vehicles) != 1:
+        raise Unprocessable(
+            "name the vehicle: this driver has none or several in service",
+            code="vehicle_required",
+        )
+    return vehicles[0]
 
 
 async def unassign_driver(
@@ -277,7 +329,7 @@ async def unassign_driver(
         booking = await get_booking(booking_id, session)
         if actor == Actor.DRIVER:
             _ensure_assigned_to(booking, by)
-        return await apply_transition(
+        updated = await apply_transition(
             session,
             booking,
             S.CONFIRMED,
@@ -286,6 +338,16 @@ async def unassign_driver(
             reason=reason,
             set_fields={"assignment": None},
         )
+        if actor == Actor.OPS:
+            await audit.record(
+                by,
+                "booking.unassign",
+                "booking",
+                booking_id,
+                {"reason": reason, "driver_id": booking.assignment.driver_id},
+                session=session,
+            )
+        return updated
 
     return await in_transaction(txn)
 
@@ -345,6 +407,15 @@ async def mark_no_show(booking_id: str, *, actor: Actor, by: User) -> Booking:
         updated = await apply_transition(session, booking, S.NO_SHOW, actor=actor, by=str(by.id))
         refund = policies.no_show_refund(booking.policy, booking.price)
         await request_refund(session, booking_id=booking_id, amount=refund, reason="no_show")
+        if actor == Actor.OPS:
+            await audit.record(
+                by,
+                "booking.no_show",
+                "booking",
+                booking_id,
+                {"refund": refund.model_dump(mode="json")},
+                session=session,
+            )
         return updated
 
     return await in_transaction(txn)

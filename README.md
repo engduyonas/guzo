@@ -38,11 +38,15 @@ M0 exit test: it books, pays through the fake provider and reaches every booking
 | Module | Owns |
 |---|---|
 | `identity` | Users, phone sign-in codes, ops login with password and TOTP |
-| `catalog` | Cities, zones, places, products and their policies, zone prices |
+| `catalog` | Cities, zones, places, products and their policies, zone prices, vehicle capacity. Ops edit these under `/v1/ops/catalog` |
 | `pricing` | `PricingStrategy` interface and quotes. Only `zone_fixed` is implemented |
 | `bookings` | Booking model, the transition table (`state_machine.py`), refund policies |
 | `payments` | Payments, refunds, double-entry ledger, provider webhooks |
 | `events` | Transactional outbox and the handlers that react to events |
+| `partners` | Referral codes for hotels, hosts and agencies, and commission attribution |
+| `fleet` | Driver vehicles |
+| `audit` | Append-only log of operations actions |
+| `web` | Browser pages served by the API: the booking link (`/book`), the ops console (`/ops`) and a test checkout used with the fake payment provider |
 | `providers` | Interfaces for payments, messaging, flight status and identity checks, plus fakes |
 
 Rules worth knowing before changing things:

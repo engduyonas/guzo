@@ -7,13 +7,14 @@ from pydantic import BaseModel, Field
 from guzo.bookings import service
 from guzo.bookings.models import Assignment, Booking, Rider, StatusChange
 from guzo.bookings.state_machine import Actor, BookingStatus
-from guzo.catalog.models import Place, VehicleClass
+from guzo.catalog.models import Place, ProductPolicy, VehicleClass
 from guzo.common.ids import object_id
 from guzo.common.money import Money
 from guzo.errors import NotFound
+from guzo.fleet.models import Vehicle
 from guzo.identity.deps import Booker, Driver, Ops
-from guzo.identity.models import Role, User, UserResponse
-from guzo.payments.models import Payment, PaymentStatus
+from guzo.identity.models import User
+from guzo.payments.models import Payment, PaymentStatus, Refund, RefundStatus
 from guzo.pricing.models import FlightInfo
 
 S = BookingStatus
@@ -37,6 +38,7 @@ class BookingResponse(BaseModel):
     seats: int
     bags: int
     price: Money
+    policy: ProductPolicy  # the terms this booking was made under
     partner_code: str | None
     status: BookingStatus
     status_history: list[StatusChange]
@@ -62,6 +64,22 @@ class PaymentResponse(BaseModel):
     @classmethod
     def from_payment(cls, payment: Payment) -> "PaymentResponse":
         return cls(id=str(payment.id), **payment.model_dump(include=set(cls.model_fields) - {"id"}))
+
+
+class AssignedVehicle(BaseModel):
+    plate: str
+    make: str
+    model: str
+    color: str
+
+
+class AssignedDriver(BaseModel):
+    """What a booker may know about the driver: enough to recognise them at pickup."""
+
+    name: str | None
+    phone: str | None
+    photo_url: str | None
+    vehicle: AssignedVehicle | None
 
 
 class BookingCreate(BaseModel):
@@ -125,6 +143,26 @@ async def get_booking(booking_id: str, user: Booker) -> BookingResponse:
     if booking.booker_id != str(user.id):
         raise NotFound("booking not found")
     return _out(booking)
+
+
+@router.get("/{booking_id}/driver")
+async def get_assigned_driver(booking_id: str, user: Booker) -> AssignedDriver:
+    """The assigned driver and car. 404 until a driver is assigned."""
+    booking = await service.get_booking(booking_id)
+    if booking.booker_id != str(user.id) or booking.assignment is None:
+        raise NotFound("no driver assigned yet", code="no_driver")
+    driver = await User.get(object_id(booking.assignment.driver_id, "driver"))
+    vehicle = None
+    if booking.assignment.vehicle_id:
+        vehicle = await Vehicle.get(object_id(booking.assignment.vehicle_id, "vehicle"))
+    return AssignedDriver(
+        name=driver.name,
+        phone=driver.phone,
+        photo_url=driver.photo_url,
+        vehicle=AssignedVehicle(**vehicle.model_dump(include=set(AssignedVehicle.model_fields)))
+        if vehicle
+        else None,
+    )
 
 
 @router.post("/{booking_id}/confirm")
@@ -237,12 +275,28 @@ async def ops_no_show(booking_id: str, user: Ops) -> BookingResponse:
     return _out(await service.mark_no_show(booking_id, actor=Actor.OPS, by=user))
 
 
-@ops_router.post("/drivers/{driver_id}/verify")
-async def verify_driver(driver_id: str, user: Ops) -> UserResponse:
-    """Mark a driver as vetted. Only verified drivers can be assigned."""
-    driver = await User.get(object_id(driver_id, "driver"))
-    if driver is None or driver.role != Role.DRIVER:
-        raise NotFound("driver not found")
-    driver.is_verified = True
-    await driver.save()
-    return UserResponse.from_user(driver)
+class RefundResponse(BaseModel):
+    id: str
+    amount: Money
+    reason: str
+    status: RefundStatus
+
+
+class BookingMoney(BaseModel):
+    payments: list[PaymentResponse]
+    refunds: list[RefundResponse]
+
+
+@ops_router.get("/bookings/{booking_id}/money")
+async def booking_money(booking_id: str, user: Ops) -> BookingMoney:
+    """Every payment attempt and refund for a booking."""
+    booking = await service.get_booking(booking_id)
+    payments = await Payment.find(Payment.booking_id == str(booking.id)).to_list()
+    refunds = await Refund.find(Refund.booking_id == str(booking.id)).to_list()
+    return BookingMoney(
+        payments=[PaymentResponse.from_payment(p) for p in payments],
+        refunds=[
+            RefundResponse(id=str(r.id), amount=r.amount, reason=r.reason, status=r.status)
+            for r in refunds
+        ],
+    )

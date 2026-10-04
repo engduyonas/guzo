@@ -53,6 +53,7 @@ class Booking(Document):
     quote_id: str | None = None
     listing_id: str | None = None  # M4 marketplace
     partner_code: str | None = None
+    partner_commission_pct: int | None = None  # the partner's rate when this was booked
     status: BookingStatus
     status_history: list[StatusChange] = Field(default_factory=list)
     assignment: Assignment | None = None
@@ -68,6 +69,7 @@ class Booking(Document):
             IndexModel([("booker_id", 1), ("created_at", -1)]),
             IndexModel([("status", 1), ("scheduled_at", 1)]),
             IndexModel([("assignment.driver_id", 1), ("scheduled_at", 1)]),
+            IndexModel([("partner_code", 1), ("status", 1)]),
             IndexModel(
                 [("quote_id", 1)],
                 unique=True,

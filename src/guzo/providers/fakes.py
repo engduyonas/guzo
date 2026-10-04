@@ -29,8 +29,9 @@ SIGNATURE_HEADER = "x-fake-signature"
 class FakePaymentProvider:
     name = "fake"
 
-    def __init__(self, webhook_secret: str):
+    def __init__(self, webhook_secret: str, checkout_base_url: str = "http://localhost:8000"):
         self._secret = webhook_secret.encode()
+        self._checkout_base_url = checkout_base_url.rstrip("/")
         self.intents: dict[str, PaymentIntent] = {}
         self.refunds: dict[str, tuple[str, Money]] = {}
         self.fail_next_create = False
@@ -44,7 +45,7 @@ class FakePaymentProvider:
         if idempotency_key not in self.intents:
             ref = f"fake_{uuid4().hex}"
             self.intents[idempotency_key] = PaymentIntent(
-                provider_ref=ref, checkout_url=f"https://pay.fake.invalid/{ref}"
+                provider_ref=ref, checkout_url=f"{self._checkout_base_url}/dev/pay/{ref}"
             )
         return self.intents[idempotency_key]
 

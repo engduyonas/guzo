@@ -4,17 +4,22 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from guzo.audit.routes import router as audit_router
 from guzo.bookings.routes import driver_router, ops_router
 from guzo.bookings.routes import router as bookings_router
+from guzo.catalog.ops_routes import router as ops_catalog_router
 from guzo.catalog.routes import router as catalog_router
 from guzo.config import configure_logging, get_settings
 from guzo.db import close_db, get_client, init_db
 from guzo.errors import DomainError
+from guzo.fleet.routes import router as fleet_router
 from guzo.identity.routes import router as auth_router
 from guzo.kv import get_redis, init_redis
+from guzo.partners.routes import router as partners_router
 from guzo.payments.routes import router as payments_router
 from guzo.pricing.routes import router as quotes_router
 from guzo.providers.registry import build_providers, set_providers
+from guzo.web.routes import mount_web
 
 API_VERSION = "v1"
 
@@ -65,10 +70,15 @@ def create_app() -> FastAPI:
         bookings_router,
         driver_router,
         ops_router,
+        ops_catalog_router,
+        fleet_router,
+        partners_router,
+        audit_router,
         payments_router,
     ):
         v1.include_router(router)
     app.include_router(v1)
+    mount_web(app, get_settings())
     return app
 
 
