@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     otp_requests_per_ip_per_hour: int = 30
     login_attempts_per_15_minutes: int = 10
 
+    # Where clients reach this service; used in links sent to people.
+    public_base_url: str = "http://localhost:8000"
+
     quote_ttl_minutes: int = 15
     payment_ttl_minutes: int = 30
 

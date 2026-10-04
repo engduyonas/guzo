@@ -15,8 +15,9 @@ class PlaceKind(StrEnum):
 
 class Place(BaseModel):
     label: str = Field(min_length=1, max_length=200)
-    lat: float = Field(ge=-90, le=90)
-    lng: float = Field(ge=-180, le=180)
+    # Optional: a typed address has no coordinates. The zone is what pricing needs.
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
     kind: PlaceKind
     zone_id: str | None = None
 

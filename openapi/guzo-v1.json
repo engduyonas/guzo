@@ -35,6 +35,90 @@
         "title": "AssignRequest",
         "type": "object"
       },
+      "AssignedDriver": {
+        "description": "What a booker may know about the driver: enough to recognise them at pickup.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "vehicle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssignedVehicle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "phone",
+          "photo_url",
+          "vehicle"
+        ],
+        "title": "AssignedDriver",
+        "type": "object"
+      },
+      "AssignedVehicle": {
+        "properties": {
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "make": {
+            "title": "Make",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "plate": {
+            "title": "Plate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plate",
+          "make",
+          "model",
+          "color"
+        ],
+        "title": "AssignedVehicle",
+        "type": "object"
+      },
       "Assignment": {
         "properties": {
           "accepted_at": {
@@ -247,6 +331,9 @@
           "pickup": {
             "$ref": "#/components/schemas/Place"
           },
+          "policy": {
+            "$ref": "#/components/schemas/ProductPolicy"
+          },
           "price": {
             "$ref": "#/components/schemas/Money"
           },
@@ -315,6 +402,7 @@
           "seats",
           "bags",
           "price",
+          "policy",
           "partner_code",
           "status",
           "status_history",
@@ -876,16 +964,30 @@
             "type": "string"
           },
           "lat": {
-            "maximum": 90.0,
-            "minimum": -90.0,
-            "title": "Lat",
-            "type": "number"
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": -90.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
           },
           "lng": {
-            "maximum": 180.0,
-            "minimum": -180.0,
-            "title": "Lng",
-            "type": "number"
+            "anyOf": [
+              {
+                "maximum": 180.0,
+                "minimum": -180.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
           },
           "zone_id": {
             "anyOf": [
@@ -901,8 +1003,6 @@
         },
         "required": [
           "label",
-          "lat",
-          "lng",
           "kind"
         ],
         "title": "Place",
@@ -2218,6 +2318,54 @@
           }
         ],
         "summary": "Confirm Booking",
+        "tags": [
+          "bookings"
+        ]
+      }
+    },
+    "/v1/bookings/{booking_id}/driver": {
+      "get": {
+        "description": "The assigned driver and car. 404 until a driver is assigned.",
+        "operationId": "get_assigned_driver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "booking_id",
+            "required": true,
+            "schema": {
+              "title": "Booking Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignedDriver"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Assigned Driver",
         "tags": [
           "bookings"
         ]

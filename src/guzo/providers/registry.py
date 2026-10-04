@@ -22,7 +22,9 @@ def build_providers(settings: Settings) -> Providers:
     if unknown:
         raise ValueError(f"no implementation for providers: {unknown}")
     return Providers(
-        payments=FakePaymentProvider(settings.fake_payment_webhook_secret),
+        payments=FakePaymentProvider(
+            settings.fake_payment_webhook_secret, settings.public_base_url
+        ),
         notifier=FakeNotifier(),
         flights=FakeFlightStatus(),
         identity=FakeIdentityCheck(),

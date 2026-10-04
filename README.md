@@ -46,6 +46,7 @@ M0 exit test: it books, pays through the fake provider and reaches every booking
 | `partners` | Referral codes for hotels, hosts and agencies, and commission attribution |
 | `fleet` | Driver vehicles |
 | `audit` | Append-only log of operations actions |
+| `web` | Browser pages served by the API: the booking link (`/book`), the ops console (`/ops`) and a test checkout used with the fake payment provider |
 | `providers` | Interfaces for payments, messaging, flight status and identity checks, plus fakes |
 
 Rules worth knowing before changing things:
