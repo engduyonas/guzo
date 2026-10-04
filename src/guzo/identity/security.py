@@ -38,6 +38,13 @@ def create_access_token(user: User) -> str:
 
 def decode_access_token(token: str) -> dict:
     try:
-        return jwt.decode(token, get_settings().jwt_secret, algorithms=[_ALGORITHM])
+        return jwt.decode(
+            token,
+            get_settings().jwt_secret,
+            algorithms=[_ALGORITHM],
+            # Expiry is what matters. Rejecting a token "issued in the future" only
+            # breaks sign-in when two servers' clocks disagree by a second.
+            options={"verify_iat": False, "require": ["exp", "sub"]},
+        )
     except jwt.PyJWTError as exc:
         raise Unauthorized("invalid or expired token") from exc
