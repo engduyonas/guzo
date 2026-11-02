@@ -18,6 +18,9 @@ jobs:
       - run: uv run ruff format --check .
       - name: Start Mongo (replica set) and Redis
         run: docker compose up -d --wait mongo redis
+      - name: Show database logs
+        if: failure()
+        run: docker compose logs mongo
       - run: uv run pytest
 
   dart-client:
