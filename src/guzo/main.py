@@ -22,6 +22,7 @@ from guzo.partners.routes import router as partners_router
 from guzo.payments.routes import router as payments_router
 from guzo.pricing.routes import router as quotes_router
 from guzo.providers.registry import build_providers, set_providers
+from guzo.telegram.routes import router as telegram_router
 from guzo.web.routes import mount_web
 
 API_VERSION = "v1"
@@ -81,6 +82,7 @@ def create_app() -> FastAPI:
         metrics_router,
         meta_router,
         payments_router,
+        telegram_router,
     ):
         v1.include_router(router)
     app.include_router(v1)

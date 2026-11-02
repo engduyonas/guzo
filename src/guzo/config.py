@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     sms_provider: str = "fake"
     flight_provider: str = "fake"
     identity_provider: str = "fake"
+    # Drivers get jobs through a Telegram bot until the driver app ships (M3).
+    driver_bot_provider: str = "fake"
+    telegram_bot_token: str | None = None
+    telegram_webhook_secret: str | None = None  # also sent by Telegram on every update
+    # How far a flight's estimated arrival must move before the pickup time follows it.
+    flight_change_minutes: int = 5
     fake_payment_webhook_secret: str = DEV_WEBHOOK_SECRET
 
     @property
@@ -54,6 +60,16 @@ class Settings(BaseSettings):
     def _known_environment(self) -> "Settings":
         if self.env not in ENVIRONMENTS:
             raise ValueError(f"GUZO_ENV must be one of {sorted(ENVIRONMENTS)}")
+        return self
+
+    @model_validator(mode="after")
+    def _telegram_credentials(self) -> "Settings":
+        if self.driver_bot_provider == "telegram" and not (
+            self.telegram_bot_token and self.telegram_webhook_secret
+        ):
+            raise ValueError(
+                "the Telegram bot needs GUZO_TELEGRAM_BOT_TOKEN and GUZO_TELEGRAM_WEBHOOK_SECRET"
+            )
         return self
 
     @model_validator(mode="after")

@@ -74,6 +74,30 @@ class FlightStatus(Protocol):
 
 
 @dataclass(frozen=True)
+class Button:
+    text: str
+    data: str  # sent back when pressed; Telegram allows 64 bytes
+
+
+class DriverBot(Protocol):
+    """Chat with drivers: job cards with buttons, edited in place as the trip moves."""
+
+    async def send(self, *, chat_id: str, text: str, buttons: list[list[Button]] = ()) -> None: ...
+
+    async def edit(
+        self, *, chat_id: str, message_id: int, text: str, buttons: list[list[Button]] = ()
+    ) -> None: ...
+
+    async def answer(self, *, callback_id: str, text: str | None = None) -> None:
+        """Acknowledge a button press, optionally with a short popup."""
+        ...
+
+    async def ask_for_phone(self, *, chat_id: str, text: str) -> None:
+        """Show a one-tap button that shares the driver's own phone number."""
+        ...
+
+
+@dataclass(frozen=True)
 class IdentityResult:
     verified: bool
     reason: str | None = None
@@ -89,3 +113,4 @@ class Providers:
     notifier: Notifier
     flights: FlightStatus
     identity: IdentityCheck
+    driver_bot: DriverBot

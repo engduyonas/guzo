@@ -44,11 +44,13 @@ async def apply_transition(
     by: str | None = None,
     reason: str | None = None,
     set_fields: dict[str, Any] | None = None,
+    event_fields: dict[str, Any] | None = None,
 ) -> Booking:
     """Move a booking to `target`. The only code path that changes `status`.
 
     Checks the transition table, appends to status_history and writes the
-    `booking.<status>` outbox event in the caller's transaction.
+    `booking.<status>` outbox event in the caller's transaction. `event_fields` adds
+    to the event what handlers cannot read from the booking afterwards.
     """
     check_transition(booking.status, target, actor)
     now = utcnow()
@@ -69,7 +71,12 @@ async def apply_transition(
     await emit(
         session,
         f"booking.{target.value}",
-        {"booking_id": str(booking.id), "from": booking.status.value, "to": target.value},
+        {
+            "booking_id": str(booking.id),
+            "from": booking.status.value,
+            "to": target.value,
+            **(event_fields or {}),
+        },
         booking_id=str(booking.id),
     )
     return await get_booking(str(booking.id), session)
@@ -329,6 +336,7 @@ async def unassign_driver(
         booking = await get_booking(booking_id, session)
         if actor == Actor.DRIVER:
             _ensure_assigned_to(booking, by)
+        driver_id = booking.assignment.driver_id if booking.assignment else None
         updated = await apply_transition(
             session,
             booking,
@@ -337,6 +345,7 @@ async def unassign_driver(
             by=str(by.id),
             reason=reason,
             set_fields={"assignment": None},
+            event_fields={"driver_id": driver_id, "by": actor.value},
         )
         if actor == Actor.OPS:
             await audit.record(
@@ -344,7 +353,7 @@ async def unassign_driver(
                 "booking.unassign",
                 "booking",
                 booking_id,
-                {"reason": reason, "driver_id": booking.assignment.driver_id},
+                {"reason": reason, "driver_id": driver_id},
                 session=session,
             )
         return updated
@@ -446,3 +455,84 @@ async def expire_due() -> int:
             # Paid or confirmed between the query and the transaction.
             continue
     return expired
+
+
+PICKUP_TIME_CHANGED = "booking.pickup_time_changed"
+# Airport pickups are checked from six hours before landing until two hours after.
+FLIGHT_WATCH_AHEAD = timedelta(hours=6)
+FLIGHT_WATCH_BEHIND = timedelta(hours=2)
+FLIGHT_WATCHED = [S.CONFIRMED.value, S.ASSIGNED.value, S.EN_ROUTE.value]
+
+
+async def follow_flights() -> int:
+    """Move airport pickups when a flight's estimated arrival moves. Run by a worker.
+
+    The pickup keeps its offset from landing, so a booking made for 20 minutes after
+    arrival stays 20 minutes after the new arrival. Returns how many pickups moved.
+    """
+    now = utcnow()
+    threshold = timedelta(minutes=get_settings().flight_change_minutes)
+    flights = get_providers().flights
+    watched = await Booking.find(
+        {
+            "flight": {"$ne": None},
+            "status": {"$in": FLIGHT_WATCHED},
+            "scheduled_at": {"$gte": now - FLIGHT_WATCH_BEHIND, "$lte": now + FLIGHT_WATCH_AHEAD},
+        }
+    ).to_list()
+    moved = 0
+    for booking in watched:
+        try:
+            found = await flights.lookup(
+                number=booking.flight.number, date=booking.flight.scheduled_arrival
+            )
+        except Exception:  # noqa: BLE001 - one bad lookup must not stop the others
+            log.exception("flight lookup failed for %s", booking.flight.number)
+            continue
+        if found is None or found.estimated_arrival is None:
+            continue
+        known = booking.flight.estimated_arrival or booking.flight.scheduled_arrival
+        shift = found.estimated_arrival - known
+        if abs(shift) < threshold:
+            continue
+
+        async def txn(
+            session: AsyncClientSession,
+            booking: Booking = booking,
+            pickup_at=booking.scheduled_at + shift,
+            estimated=found.estimated_arrival,
+        ) -> bool:
+            result = await Booking.get_pymongo_collection().update_one(
+                # Skip it if the trip moved on or someone changed it since the query.
+                {
+                    "_id": booking.id,
+                    "status": booking.status.value,
+                    "scheduled_at": booking.scheduled_at,
+                },
+                {
+                    "$set": {
+                        "scheduled_at": pickup_at,
+                        "flight.estimated_arrival": estimated,
+                        "updated_at": utcnow(),
+                    }
+                },
+                session=session,
+            )
+            if result.modified_count != 1:
+                return False
+            await emit(
+                session,
+                PICKUP_TIME_CHANGED,
+                {
+                    "booking_id": str(booking.id),
+                    "from": booking.scheduled_at.isoformat(),
+                    "to": pickup_at.isoformat(),
+                    "flight": booking.flight.number,
+                },
+                booking_id=str(booking.id),
+            )
+            return True
+
+        if await in_transaction(txn):
+            moved += 1
+    return moved

@@ -195,11 +195,12 @@ async function renderDrivers() {
   const drivers = await call("GET", "/v1/ops/drivers");
   show(
     h("h1", {}, "Drivers"),
-    h("p", { class: "muted" }, "Drivers sign up with their phone number. Verify a driver after vetting; only verified drivers with a car can be assigned."),
+    h("p", { class: "muted" }, "Drivers sign up with their phone number. Verify a driver after vetting; only verified drivers with a car can be assigned. Drivers get jobs in Telegram once they share their number with the Guzo bot; until then, by SMS."),
     drivers.length === 0 ? h("p", { class: "muted" }, "No drivers have signed up yet.") : null,
     drivers.map(({ driver, vehicles }) => h("div", { class: "card" },
       h("strong", {}, driver.name || "(no name)"), ` ${driver.phone} `,
-      h("span", { class: "status" }, driver.is_verified ? "verified" : "not verified"),
+      h("span", { class: "status" }, driver.is_verified ? "verified" : "not verified"), " ",
+      h("span", { class: "status" }, driver.telegram_linked ? "on Telegram" : "SMS only"),
       vehicles.length ? h("ul", {}, vehicles.map((v) => h("li", {},
         `${v.color} ${v.make} ${v.model} (${v.vehicle_class}), ${v.plate}${v.active ? "" : ", retired"} `,
         v.active ? h("button", { class: "link", onclick: busy(() => call("DELETE", `/v1/ops/drivers/${driver.id}/vehicles/${v.id}`)) }, "Retire") : null)))

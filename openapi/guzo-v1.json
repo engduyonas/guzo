@@ -1566,6 +1566,10 @@
           "role": {
             "$ref": "#/components/schemas/Role"
           },
+          "telegram_linked": {
+            "title": "Telegram Linked",
+            "type": "boolean"
+          },
           "total_ratings": {
             "title": "Total Ratings",
             "type": "integer"
@@ -1581,6 +1585,7 @@
           "is_verified",
           "rating",
           "total_ratings",
+          "telegram_linked",
           "created_at"
         ],
         "title": "UserResponse",
@@ -4582,6 +4587,49 @@
         "summary": "Get Quote",
         "tags": [
           "quotes"
+        ]
+      }
+    },
+    "/v1/telegram/webhook": {
+      "post": {
+        "description": "Updates from the driver bot. Telegram sends the secret set with setWebhook.",
+        "operationId": "telegram_webhook",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-telegram-bot-api-secret-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Telegram-Bot-Api-Secret-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Telegram Webhook",
+        "tags": [
+          "telegram"
         ]
       }
     }

@@ -7,6 +7,7 @@ and these handlers do the rest, so new reactions do not touch booking logic.
 from beanie import PydanticObjectId
 
 from guzo.bookings.models import Booking
+from guzo.bookings.service import PICKUP_TIME_CHANGED
 from guzo.bookings.state_machine import BookingStatus
 from guzo.events.models import OutboxEvent
 from guzo.events.outbox import on
@@ -14,6 +15,8 @@ from guzo.identity.models import User
 from guzo.payments.refunds import REFUND_REQUESTED
 from guzo.payments.service import process_refund
 from guzo.providers.registry import get_providers
+from guzo.telegram.bot import send_job
+from guzo.telegram.cards import local_time
 
 S = BookingStatus
 
@@ -68,7 +71,7 @@ async def send_pickup_details(event: OutboxEvent) -> None:
     if driver is None:
         return
     notifier = get_providers().notifier
-    when = booking.scheduled_at.strftime("%d %b %Y %H:%M UTC")
+    when = await local_time(booking)
     for rider in booking.riders:
         if rider.is_booker:
             continue  # already told by notify_booker
@@ -79,7 +82,9 @@ async def send_pickup_details(event: OutboxEvent) -> None:
                 f"{booking.pickup.label} on {when}. Booking {_ref(booking)}."
             ),
         )
-    if driver.phone:
+    if driver.telegram_chat_id:
+        await send_job(driver, booking)
+    elif driver.phone:
         names = ", ".join(r.name for r in booking.riders)
         await notifier.send(
             to=driver.phone,
@@ -88,6 +93,56 @@ async def send_pickup_details(event: OutboxEvent) -> None:
                 f"on {when}. Riders: {names}."
             ),
         )
+
+
+async def _tell_driver(driver_id: str | None, body: str) -> None:
+    """Telegram when the driver has linked it, SMS otherwise."""
+    driver = await User.get(PydanticObjectId(driver_id)) if driver_id else None
+    if driver is None:
+        return
+    providers = get_providers()
+    if driver.telegram_chat_id:
+        await providers.driver_bot.send(chat_id=driver.telegram_chat_id, text=body)
+    elif driver.phone:
+        await providers.notifier.send(to=driver.phone, body=body)
+
+
+@on("booking.cancelled")
+async def tell_driver_cancelled(event: OutboxEvent) -> None:
+    booking, _ = await _load(event)
+    if booking.assignment is not None:
+        await _tell_driver(
+            booking.assignment.driver_id,
+            f"Guzo job {_ref(booking)} was cancelled. Do not go to pickup.",
+        )
+
+
+@on("booking.confirmed")
+async def tell_driver_taken_back(event: OutboxEvent) -> None:
+    # Ops took the job back. A driver who gave it back already knows.
+    if event.payload["from"] != S.ASSIGNED.value or event.payload.get("by") != "ops":
+        return
+    booking, _ = await _load(event)
+    await _tell_driver(
+        event.payload.get("driver_id"),
+        f"Guzo job {_ref(booking)} has been given to another driver. Do not go to pickup.",
+    )
+
+
+@on(PICKUP_TIME_CHANGED)
+async def tell_new_pickup_time(event: OutboxEvent) -> None:
+    booking, _ = await _load(event)
+    when = await local_time(booking)
+    flight = booking.flight.number if booking.flight else "the flight"
+    body = (
+        f"Guzo: {flight} now lands at a different time. "
+        f"Pickup for booking {_ref(booking)} is now {when}."
+    )
+    if booking.assignment is not None:
+        await _tell_driver(booking.assignment.driver_id, body)
+    booker = await User.get(PydanticObjectId(booking.booker_id))
+    if booker is not None and booker.phone:
+        await get_providers().notifier.send(to=booker.phone, body=body)
 
 
 @on(REFUND_REQUESTED)
