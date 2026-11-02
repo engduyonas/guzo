@@ -18,6 +18,8 @@ jobs:
       - run: uv run ruff format --check .
       - name: Start Mongo (replica set) and Redis
         run: docker compose up -d --wait mongo redis
+        env:
+          GUZO_MONGO_TAG: "7.0"
       - name: Show database logs
         if: failure()
         run: docker compose logs mongo
