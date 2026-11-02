@@ -12,12 +12,14 @@ from guzo.config import configure_logging, get_settings
 from guzo.db import close_db, init_db
 from guzo.events import handlers  # noqa: F401 - registers the outbox handlers
 from guzo.events.outbox import deliver_pending
+from guzo.monitoring import init_monitoring
 from guzo.providers.registry import build_providers, set_providers
 
 
 async def startup(ctx: dict) -> None:
     configure_logging()
     settings = get_settings()
+    init_monitoring(settings)
     await init_db(settings)
     set_providers(build_providers(settings))
 

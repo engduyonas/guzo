@@ -6,7 +6,7 @@ const app = document.getElementById("app");
 const nav = document.getElementById("nav");
 const STATUSES = ["quoted", "awaiting_payment", "confirmed", "assigned", "en_route", "arrived",
   "in_progress", "completed", "cancelled", "expired", "no_show"];
-const TABS = { bookings: "Bookings", drivers: "Drivers", prices: "Prices", partners: "Partners", audit: "Audit log" };
+const TABS = { bookings: "Bookings", drivers: "Drivers", prices: "Prices", partners: "Partners", metrics: "Weekly numbers", audit: "Audit log" };
 
 const state = {
   token: sessionStorage.getItem("guzo.ops.token"),
@@ -292,6 +292,31 @@ async function renderPartners() {
   );
 }
 
+// --- Weekly numbers -----------------------------------------------------------
+
+async function renderMetrics() {
+  const weeks = await call("GET", "/v1/ops/metrics/weekly?weeks=12");
+  const pct = (rate) => (rate === null ? "—" : `${Math.round(rate * 100)}%`);
+  const split = (counts) => Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ") || "—";
+  show(
+    h("h1", {}, "Weekly numbers"),
+    h("p", { class: "muted" }, "Weeks start on Monday, Addis Ababa time. Demand counts bookings made in the week; service counts paid trips scheduled for the week. On time means the driver was at pickup at or before the scheduled time."),
+    h("h2", {}, "Demand"),
+    table(["Week of", "Bookings made", "Paid", "By channel", "Bookers", "Returning (90 days)"],
+      weeks.map((w) => h("tr", {},
+        h("td", {}, w.week_start), h("td", {}, w.bookings_created), h("td", {}, w.bookings_paid),
+        h("td", {}, split(w.paid_by_channel)), h("td", {}, w.bookers), h("td", {}, w.repeat_bookers)))),
+    h("h2", {}, "Service"),
+    table(["Week of", "Trips", "Completed", "On time", "Cancelled", "No-show", "Median time to assign"],
+      weeks.map((w) => h("tr", {},
+        h("td", {}, w.week_start), h("td", {}, w.trips_scheduled), h("td", {}, w.completed),
+        h("td", {}, `${pct(w.on_time_rate)} (${w.on_time_arrivals}/${w.arrivals})`),
+        h("td", {}, `${pct(w.cancellation_rate)} (${w.cancelled})`),
+        h("td", {}, `${pct(w.no_show_rate)} (${w.no_show})`),
+        h("td", {}, w.median_minutes_to_assign === null ? "—" : `${w.median_minutes_to_assign} min`)))),
+  );
+}
+
 // --- Audit --------------------------------------------------------------------
 
 async function renderAudit() {
@@ -318,7 +343,7 @@ async function render() {
     }, label)),
     h("button", { onclick: signOut }, "Sign out"),
   );
-  const pages = { bookings: state.bookingId ? renderBooking : renderBookings, drivers: renderDrivers, prices: renderPrices, partners: renderPartners, audit: renderAudit };
+  const pages = { bookings: state.bookingId ? renderBooking : renderBookings, drivers: renderDrivers, prices: renderPrices, partners: renderPartners, metrics: renderMetrics, audit: renderAudit };
   try {
     await pages[state.tab]();
   } catch (error) {
