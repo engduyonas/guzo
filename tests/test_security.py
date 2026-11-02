@@ -20,6 +20,7 @@ PUBLIC = {
     ("GET", "/v1/partners/{code}"),
     ("GET", "/v1/meta/client"),
     ("POST", "/v1/payments/webhooks/{provider}"),  # authenticated by provider signature
+    ("POST", "/v1/telegram/webhook"),  # authenticated by the webhook secret
 }
 ANY_ID = "0" * 24
 

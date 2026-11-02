@@ -1,13 +1,14 @@
 """Background worker: arq guzo.worker.WorkerSettings
 
 Nothing slow or retryable runs inside a request handler. Requests write to Mongo
-(including the outbox); this process delivers events and expires stale bookings.
+(including the outbox); this process delivers events, expires stale bookings and
+follows flights for airport pickups.
 """
 
 from arq import cron
 from arq.connections import RedisSettings
 
-from guzo.bookings.service import expire_due
+from guzo.bookings.service import expire_due, follow_flights
 from guzo.config import configure_logging, get_settings
 from guzo.db import close_db, init_db
 from guzo.events import handlers  # noqa: F401 - registers the outbox handlers
@@ -36,6 +37,10 @@ async def expire_bookings(ctx: dict) -> int:
     return await expire_due()
 
 
+async def check_flights(ctx: dict) -> int:
+    return await follow_flights()
+
+
 class WorkerSettings:
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     on_startup = startup
@@ -43,4 +48,5 @@ class WorkerSettings:
     cron_jobs = [
         cron(deliver_outbox, second=set(range(0, 60, 5)), run_at_startup=True),
         cron(expire_bookings, second=0),
+        cron(check_flights, minute={0, 30}, second=30),
     ]

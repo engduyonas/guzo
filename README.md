@@ -11,7 +11,7 @@ docker compose up -d --wait mongo redis      # Mongo runs as a single-node repli
 uv sync
 uv run python -m guzo.catalog.seed --example-prices
 uv run uvicorn guzo.main:app --reload         # http://localhost:8000/docs
-uv run arq guzo.worker.WorkerSettings         # outbox delivery and expiry
+uv run arq guzo.worker.WorkerSettings         # outbox delivery, expiry and flight checks
 ```
 
 `docker compose --profile app up --build` runs the API and worker in containers instead.
@@ -21,6 +21,24 @@ Create an operations account (prints a TOTP secret for an authenticator app):
 ```sh
 uv run python -m guzo.identity.cli ops@example.com "Your Name"
 ```
+
+## Driver bot
+
+Drivers get jobs in Telegram until the driver app ships. Create a bot with @BotFather,
+then set `GUZO_DRIVER_BOT_PROVIDER=telegram`, `GUZO_TELEGRAM_BOT_TOKEN` and
+`GUZO_TELEGRAM_WEBHOOK_SECRET`. A driver opens the bot and taps "Share my phone number";
+if it matches a driver account, jobs arrive there with buttons for each step. Drivers who
+have not linked keep getting jobs by SMS.
+
+```sh
+uv run python -m guzo.telegram.cli poll      # local: no public URL needed
+uv run python -m guzo.telegram.cli webhook   # deployed: points Telegram at GUZO_PUBLIC_BASE_URL
+```
+
+The worker checks flights every 30 minutes, from six hours before a pickup until two hours
+after, and moves the pickup when the estimated arrival shifts by at least
+`GUZO_FLIGHT_CHANGE_MINUTES` (5). Driver and booker are told. Only a fake flight provider
+exists so far.
 
 ## Check it
 
@@ -46,6 +64,7 @@ M0 exit test: it books, pays through the fake provider and reaches every booking
 | `partners` | Referral codes for hotels, hosts and agencies, and commission attribution |
 | `fleet` | Driver vehicles |
 | `audit` | Append-only log of operations actions |
+| `telegram` | The driver bot: drivers link by sharing their number, then work jobs from buttons |
 | `web` | Browser pages served by the API: the booking link (`/book`), the ops console (`/ops`) and a test checkout used with the fake payment provider |
 | `metrics` | Weekly demand and service numbers for the ops review |
 | `providers` | Interfaces for payments, messaging, flight status and identity checks, plus fakes |

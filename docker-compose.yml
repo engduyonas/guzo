@@ -1,6 +1,8 @@
 services:
   mongo:
-    image: mongo:8.0
+    # Mongo 8 refuses to start on Linux kernels 6.19 to 7.0.13 (SERVER-125742); CI runners
+    # still have one, so CI sets GUZO_MONGO_TAG=7.0.
+    image: mongo:${GUZO_MONGO_TAG:-8.0}
     # A single-node replica set: multi-document transactions need one.
     command: ["--replSet", "rs0", "--bind_ip_all"]
     ports: ["27017:27017"]
