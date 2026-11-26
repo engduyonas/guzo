@@ -2170,6 +2170,10 @@
             "title": "Bookers",
             "type": "integer"
           },
+          "bookings_billed": {
+            "title": "Bookings Billed",
+            "type": "integer"
+          },
           "bookings_created": {
             "title": "Bookings Created",
             "type": "integer"
@@ -2270,6 +2274,7 @@
           "week_start",
           "bookings_created",
           "bookings_paid",
+          "bookings_billed",
           "paid_by_product",
           "paid_by_channel",
           "bookers",

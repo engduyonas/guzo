@@ -71,6 +71,7 @@ async def test_weekly_metrics(flow, ops, booker, driver, sign_in, time):
         "week_start": "2026-12-14",
         "bookings_created": 4,
         "bookings_paid": 3,
+        "bookings_billed": 0,
         "paid_by_product": {"airport_transfer": 3},
         "paid_by_channel": {"HILTON": 1, "direct": 2},
         "bookers": 1,

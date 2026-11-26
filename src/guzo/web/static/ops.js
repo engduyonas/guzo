@@ -412,11 +412,11 @@ async function renderMetrics() {
   const split = (counts) => Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ") || "—";
   show(
     h("h1", {}, "Weekly numbers"),
-    h("p", { class: "muted" }, "Weeks start on Monday, Addis Ababa time. Demand counts bookings made in the week; service counts paid trips scheduled for the week. On time means the driver was at pickup at or before the scheduled time."),
+    h("p", { class: "muted" }, "Weeks start on Monday, Addis Ababa time. Demand counts bookings made in the week; service counts confirmed trips scheduled for the week. Confirmed means paid online or billed to a company. On time means the driver was at pickup at or before the scheduled time."),
     h("h2", {}, "Demand"),
-    table(["Week of", "Bookings made", "Paid", "By channel", "Bookers", "Returning (90 days)"],
+    table(["Week of", "Bookings made", "Confirmed", "Billed to companies", "By channel", "Bookers", "Returning (90 days)"],
       weeks.map((w) => h("tr", {},
-        h("td", {}, w.week_start), h("td", {}, w.bookings_created), h("td", {}, w.bookings_paid),
+        h("td", {}, w.week_start), h("td", {}, w.bookings_created), h("td", {}, w.bookings_paid), h("td", {}, w.bookings_billed),
         h("td", {}, split(w.paid_by_channel)), h("td", {}, w.bookers), h("td", {}, w.repeat_bookers)))),
     h("h2", {}, "Service"),
     table(["Week of", "Trips", "Completed", "On time", "Cancelled", "No-show", "Median time to assign"],

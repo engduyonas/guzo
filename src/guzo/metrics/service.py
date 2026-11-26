@@ -18,15 +18,17 @@ from guzo.common.clock import utcnow
 S = BookingStatus
 REPEAT_WINDOW = timedelta(days=90)
 DIRECT = "direct"
+COMPANY = "company"
 
 
 class WeekMetrics(BaseModel):
     week_start: date
     # Demand: bookings made this week.
     bookings_created: int
-    bookings_paid: int
+    bookings_paid: int  # confirmed: paid online or billed to a company
+    bookings_billed: int  # of those, billed to a company on its monthly statement
     paid_by_product: dict[str, int]
-    paid_by_channel: dict[str, int]  # partner code, or "direct"
+    paid_by_channel: dict[str, int]  # partner code, "company" or "direct"
     bookers: int
     repeat_bookers: int  # had a completed trip in the 90 days before booking again
     # Service: paid trips scheduled for this week.
@@ -90,7 +92,8 @@ async def weekly_metrics(city_id: str, weeks: int) -> list[WeekMetrics]:
         repeat: set[str] = set()
         for b in created_paid:
             by_product[b.product_code] = by_product.get(b.product_code, 0) + 1
-            channel = b.partner_code or DIRECT
+            # A partner code wins: commission is owed on it whoever pays.
+            channel = b.partner_code or (COMPANY if b.company_id else DIRECT)
             by_channel[channel] = by_channel.get(channel, 0) + 1
             bookers.add(b.booker_id)
             if any(
@@ -113,6 +116,7 @@ async def weekly_metrics(city_id: str, weeks: int) -> list[WeekMetrics]:
                 week_start=start,
                 bookings_created=len(created),
                 bookings_paid=len(created_paid),
+                bookings_billed=sum(1 for b in created_paid if b.company_id),
                 paid_by_product=by_product,
                 paid_by_channel=by_channel,
                 bookers=len(bookers),

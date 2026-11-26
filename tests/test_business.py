@@ -203,3 +203,14 @@ async def test_ops_can_remove_a_member_and_it_is_audited(ops, sign_in):
 
     trail = (await ops.get(f"/v1/ops/audit?target_type=company&target_id={company['id']}")).json()
     assert "company.member_remove" in [entry["action"] for entry in trail]
+
+
+async def test_weekly_numbers_count_company_bookings_apart(ops, sign_in):
+    company = await make_company(ops)
+    await add_member(ops, f"/v1/ops/companies/{company['id']}/members", ADMIN_PHONE, "admin")
+    admin = await sign_in(ADMIN_PHONE)
+    await company_booking(admin, datetime.now(UTC) + timedelta(days=3))
+
+    week = (await ops.get("/v1/ops/metrics/weekly?weeks=1")).json()[0]
+    assert week["bookings_paid"] == 1 and week["bookings_billed"] == 1
+    assert week["paid_by_channel"] == {"company": 1}
