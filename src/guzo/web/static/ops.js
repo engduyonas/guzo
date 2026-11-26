@@ -118,6 +118,10 @@ async function renderBooking() {
     call("GET", `/v1/ops/audit?target_type=booking&target_id=${id}`),
     call("GET", "/v1/ops/drivers?verified=true"),
   ]);
+  const company = booking.company_id
+    ? (await call("GET", "/v1/ops/companies")).find((c) => c.id === booking.company_id)
+    : null;
+  const billedTo = company ? company.name : booking.company_id;
   const act = (path, body) => busy(async (event) => {
     await call("POST", `/v1/ops/bookings/${id}/${path}`, body ? body(formValues(event)) : {});
   });
@@ -144,9 +148,11 @@ async function renderBooking() {
   if (["confirmed", "assigned"].includes(booking.status)) {
     controls.push(h("form", { class: "card", onsubmit: act("cancel", (v) => ({ reason: v.cancel_reason })) },
       h("h2", {}, "Cancel"),
-      h("p", { class: "muted" }, `The refund follows this booking's terms: free cancellation up to ${booking.policy.free_cancel_hours} h before pickup, then a ${booking.policy.late_cancel_fee_pct}% fee.`),
+      h("p", { class: "muted" }, billedTo
+        ? `Billed to ${billedTo}. A cancellation by operations is not charged to the company.`
+        : `The refund follows this booking's terms: free cancellation up to ${booking.policy.free_cancel_hours} h before pickup, then a ${booking.policy.late_cancel_fee_pct}% fee.`),
       field("Reason", reason("cancel_reason")),
-      h("div", { class: "actions" }, h("button", { class: "danger", type: "submit" }, "Cancel booking and refund per policy"))));
+      h("div", { class: "actions" }, h("button", { class: "danger", type: "submit" }, billedTo ? "Cancel booking" : "Cancel booking and refund per policy"))));
   }
   if (booking.status === "arrived") {
     controls.push(h("form", { class: "card", onsubmit: act("no-show") },
@@ -168,12 +174,13 @@ async function renderBooking() {
       h("dt", {}, "Riders"), h("dd", {}, booking.riders.map((r) => `${r.name} ${r.phone}${r.is_booker ? " (booker)" : ""}`).join("; ")),
       h("dt", {}, "Price"), h("dd", {}, money(booking.price)),
       h("dt", {}, "Partner"), h("dd", {}, booking.partner_code || "—"),
+      h("dt", {}, "Paid by"), h("dd", {}, billedTo ? `${billedTo} (monthly statement)` : "Booker, online"),
       h("dt", {}, "Driver"), h("dd", {}, booking.assignment
         ? `${assigned ? assigned.driver.name || assigned.driver.phone : booking.assignment.driver_id}${booking.assignment.accepted_at ? ", accepted" : ", not yet accepted"}`
         : "—"))),
     controls,
     h("h2", {}, "Money"),
-    cash.payments.length + cash.refunds.length === 0 ? h("p", { class: "muted" }, "No payments yet.") : table(
+    cash.payments.length + cash.refunds.length === 0 ? h("p", { class: "muted" }, billedTo ? `No online payment. The ride is on ${billedTo}'s monthly statement.` : "No payments yet.") : table(
       ["Type", "Amount", "Status", "Detail"],
       [
         ...cash.payments.map((p) => h("tr", {}, h("td", {}, "Payment"), h("td", {}, money(p.amount)), h("td", {}, p.status), h("td", {}, p.provider))),
