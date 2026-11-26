@@ -49,7 +49,7 @@ def create_app() -> FastAPI:
         title="Guzo API",
         version="1.0.0",
         lifespan=lifespan,
-        # Short operation ids give the generated Dart client readable method names.
+        # Short operation ids give the generated client types readable names.
         generate_unique_id_function=lambda route: route.name,
     )
 

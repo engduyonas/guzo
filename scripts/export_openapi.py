@@ -1,4 +1,4 @@
-"""Write the OpenAPI contract the Dart client is generated from.
+"""Write the OpenAPI contract the API clients are generated from.
 
     uv run python scripts/export_openapi.py
 
