@@ -93,6 +93,7 @@ class BookingCreate(BaseModel):
 class ConfirmResponse(BaseModel):
     booking: BookingResponse
     payment: PaymentResponse | None  # None when the booking is billed to a company
+    failed_attempts: int = 0  # earlier payments the provider refused; tell the booker
 
 
 class Reason(BaseModel):
@@ -175,9 +176,13 @@ async def confirm_booking(booking_id: str, user: Booker) -> ConfirmResponse:
     A booking billed to a company is confirmed at once and has no payment.
     """
     booking, payment = await service.confirm_booking(user, booking_id)
+    failed = await Payment.find(
+        Payment.booking_id == booking_id, Payment.status == PaymentStatus.FAILED
+    ).count()
     return ConfirmResponse(
         booking=_out(booking),
         payment=PaymentResponse.from_payment(payment) if payment else None,
+        failed_attempts=failed,
     )
 
 

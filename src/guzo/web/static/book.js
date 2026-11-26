@@ -350,12 +350,18 @@ async function loadStatus() {
   const cacheKey = `guzo.booking.${state.bookingId}`;
   try {
     const booking = await api("GET", `/v1/bookings/${state.bookingId}`, { token });
-    const view = { booking, driver: null, payment: null };
+    const view = { booking, driver: null, payment: null, failedAttempts: 0 };
+    if (!state.partner && booking.partner_code) {
+      // Back from the checkout, the link no longer names the partner.
+      state.partner = await api("GET", `/v1/partners/${encodeURIComponent(booking.partner_code)}`).catch(() => null);
+    }
     if (booking.assignment) {
       view.driver = await api("GET", `/v1/bookings/${booking.id}/driver`, { token }).catch(() => null);
     }
     if (booking.status === "awaiting_payment") {
-      view.payment = (await api("POST", `/v1/bookings/${booking.id}/confirm`, { token })).payment;
+      const confirm = await api("POST", `/v1/bookings/${booking.id}/confirm`, { token });
+      view.payment = confirm.payment;
+      view.failedAttempts = confirm.failed_attempts;
     }
     localStorage.setItem(cacheKey, JSON.stringify(view));
     return { ...view, stale: false };
@@ -386,7 +392,7 @@ async function renderStatus() {
     if (error.status === 401) return go("signin");
     return show(h("div", { class: "error" }, error.message), h("button", { onclick: render }, t("refresh")));
   }
-  const { booking, driver, payment, stale } = view;
+  const { booking, driver, payment, failedAttempts, stale } = view;
   let confirmingCancel = false;
 
   const paint = () => show(
@@ -396,6 +402,7 @@ async function renderStatus() {
     booking.status === "awaiting_payment" && payment && payment.checkout_url
       ? h("div", { class: "card" },
           h("h2", {}, t("pay_title")),
+          failedAttempts ? h("div", { class: "error", role: "alert" }, t("payment_failed")) : null,
           h("p", { class: "muted" }, t("pay_help", { time: addisTime(booking.payment_expires_at, state.lang) })),
           h("p", { class: "price" }, money(booking.price, state.lang)),
           h("div", { class: "actions" }, h("a", { class: "button primary", href: checkoutLink(payment) }, t("pay_now"))))

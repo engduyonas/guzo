@@ -57,6 +57,18 @@ async def test_fake_checkout_pays_a_booking(flow, booker, client):
     assert (await client.post("/dev/pay/fake_unknown", json={})).status_code == 404
 
 
+async def test_a_failed_payment_is_reported_and_can_be_retried(flow, booker, client):
+    booking, payment = await flow.awaiting_payment(booker)
+    confirm = f"/v1/bookings/{booking['id']}/confirm"
+    assert (await booker.post(confirm)).json()["failed_attempts"] == 0
+
+    path = payment["checkout_url"].removeprefix("http://localhost:8000")
+    assert (await client.post(path, json={"status": "failed"})).status_code == 204
+    retry = (await booker.post(confirm)).json()
+    assert retry["failed_attempts"] == 1
+    assert retry["payment"]["provider_ref"] != payment["provider_ref"]
+
+
 async def test_a_typed_address_needs_no_coordinates(booker, time):
     from datetime import timedelta
 

@@ -77,5 +77,6 @@
   "bill_to_company_help": "Your company pays at the end of the month. You do not pay now.",
   "billed_to_company": "Billed to your company",
   "billing_title": "How do you want to pay?",
-  "cancel_help_company": "Free cancellation up to {hours} hours before pickup. After that, the fee goes on your company's monthly statement."
+  "cancel_help_company": "Free cancellation up to {hours} hours before pickup. After that, the fee goes on your company's monthly statement.",
+  "payment_failed": "Your last payment did not go through. No money was taken. Please try again."
 }

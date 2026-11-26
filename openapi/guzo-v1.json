@@ -601,6 +601,11 @@
           "booking": {
             "$ref": "#/components/schemas/BookingResponse"
           },
+          "failed_attempts": {
+            "default": 0,
+            "title": "Failed Attempts",
+            "type": "integer"
+          },
           "payment": {
             "anyOf": [
               {
