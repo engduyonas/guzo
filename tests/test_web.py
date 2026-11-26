@@ -19,6 +19,14 @@ async def test_pages_are_served_with_a_strict_content_policy(client):
     assert script.status_code == 200 and "javascript" in script.headers["content-type"]
 
 
+async def test_static_files_are_checked_for_a_newer_copy(client):
+    for path in ("/static/book.js", "/static/ops.js", "/static/i18n/am.json"):
+        response = await client.get(path)
+        assert response.headers["cache-control"] == "no-cache"
+        again = await client.get(path, headers={"If-None-Match": response.headers["etag"]})
+        assert again.status_code == 304
+
+
 def test_pages_have_no_inline_script_or_html_injection():
     for page in STATIC.glob("*.html"):
         assert "<script>" not in page.read_text() and "onclick=" not in page.read_text()

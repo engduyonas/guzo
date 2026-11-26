@@ -35,6 +35,19 @@ def _page(name: str) -> Response:
     return FileResponse(STATIC / name, media_type="text/html", headers=PAGE_HEADERS)
 
 
+class RevalidatedFiles(StaticFiles):
+    """Browsers ask for a newer copy on each load; an unchanged file costs only a 304.
+
+    Without this, a browser can keep an old script or string file after a release and
+    mix it with new ones, which shows raw string keys or calls removed routes.
+    """
+
+    def file_response(self, *args, **kwargs) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 class SimulatedPayment(BaseModel):
     status: PaymentEventStatus = PaymentEventStatus.PAID
 
@@ -66,4 +79,4 @@ def mount_web(app: FastAPI, settings: Settings) -> None:
             return Response(status_code=204)
 
     app.include_router(router)
-    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+    app.mount("/static", RevalidatedFiles(directory=STATIC), name="static")
