@@ -6,6 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from guzo.audit.models import AuditEntry
 from guzo.bookings.models import Booking
+from guzo.business.models import Company, Membership
 from guzo.catalog.models import City, KnownPlace, Product, VehicleCapacity, Zone, ZonePrice
 from guzo.config import Settings
 from guzo.events.models import OutboxEvent
@@ -32,6 +33,8 @@ DOCUMENT_MODELS = [
     Partner,
     Vehicle,
     AuditEntry,
+    Company,
+    Membership,
 ]
 
 _client: AsyncMongoClient | None = None

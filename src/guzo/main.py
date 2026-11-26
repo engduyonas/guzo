@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from guzo.audit.routes import router as audit_router
 from guzo.bookings.routes import driver_router, ops_router
 from guzo.bookings.routes import router as bookings_router
+from guzo.business.routes import router as business_router
 from guzo.catalog.ops_routes import router as ops_catalog_router
 from guzo.catalog.routes import router as catalog_router
 from guzo.config import configure_logging, get_settings
@@ -81,6 +82,7 @@ def create_app() -> FastAPI:
         metrics_router,
         meta_router,
         payments_router,
+        business_router,
     ):
         v1.include_router(router)
     app.include_router(v1)

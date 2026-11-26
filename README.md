@@ -44,6 +44,7 @@ M0 exit test: it books, pays through the fake provider and reaches every booking
 | `payments` | Payments, refunds, double-entry ledger, provider webhooks |
 | `events` | Transactional outbox and the handlers that react to events |
 | `partners` | Referral codes for hotels, hosts and agencies, and commission attribution |
+| `business` | Companies, their members and the monthly statement. Members book rides billed to the company, with no online payment |
 | `fleet` | Driver vehicles |
 | `audit` | Append-only log of operations actions |
 | `web` | Browser pages served by the API: the booking link (`/book`), the ops console (`/ops`) and a test checkout used with the fake payment provider |
