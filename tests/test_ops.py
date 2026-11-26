@@ -2,7 +2,9 @@
 
 from datetime import timedelta
 
+from guzo import db
 from guzo.audit.models import AuditEntry
+from guzo.fleet.models import Vehicle
 
 from .conftest import RIDERS, VEHICLE, quote_body
 
@@ -180,12 +182,26 @@ async def test_assignment_needs_a_vehicle_and_is_audited(flow, ops, booker, sign
 
     listed = (await ops.get("/v1/ops/drivers?verified=true")).json()
     assert [len(d["vehicles"]) for d in listed] == [2]
+
     photo = await ops.http.patch(
         f"/v1/ops/drivers/{driver.id}",
         json={"photo_url": "https://cdn.example.com/tadesse.jpg"},
         headers=ops.headers,
     )
     assert photo.json()["driver"]["photo_url"] == "https://cdn.example.com/tadesse.jpg"
+
+
+async def test_a_retired_car_can_be_added_again(ops, sign_in):
+    first = await sign_in("0911234567", role="driver", name="Tadesse Bekele")
+    second = await sign_in("0911765432", role="driver", name="Hirut Alemu")
+    car = (await ops.post(f"/v1/ops/drivers/{first.id}/vehicles", VEHICLE)).json()
+    taken = await ops.post(f"/v1/ops/drivers/{second.id}/vehicles", VEHICLE)
+    assert taken.status_code == 409 and taken.json()["error"]["code"] == "plate_exists"
+
+    path = f"/v1/ops/drivers/{first.id}/vehicles/{car['id']}"
+    assert (await ops.http.delete(path, headers=ops.headers)).status_code == 204
+    moved = await ops.post(f"/v1/ops/drivers/{second.id}/vehicles", VEHICLE)
+    assert moved.status_code == 201 and moved.json()["plate"] == "AA 2-B12345"
 
 
 async def test_booker_and_driver_actions_are_not_in_the_ops_audit_log(flow, booker, ops, driver):
@@ -254,3 +270,14 @@ async def test_partner_codes_attribute_bookings_and_commission(
     await ops.http.patch("/v1/ops/partners/HILTON", json={"active": False}, headers=ops.headers)
     assert (await client.get("/v1/partners/HILTON")).status_code == 404
     assert (await book("HILTON")).json()["error"]["code"] == "unknown_partner"
+
+
+async def test_start_up_drops_the_old_plate_index():
+    collection = Vehicle.get_pymongo_collection()
+    await collection.drop_index("plate_in_service")
+    await collection.create_index("plate", unique=True)  # as older releases made it
+    await db.drop_retired_indexes(collection.database)
+    await Vehicle.get_pymongo_collection().create_indexes(
+        [i for i in Vehicle.Settings.indexes if i.document["name"] == "plate_in_service"]
+    )
+    assert set(await collection.index_information()) == {"_id_", "driver_id_1", "plate_in_service"}
