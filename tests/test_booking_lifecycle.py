@@ -1,6 +1,7 @@
 """M0 exit test: create a booking, pay with the fake provider, walk every state."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from guzo.bookings.service import expire_due
 from guzo.bookings.state_machine import BookingStatus
@@ -98,7 +99,13 @@ async def test_happy_path_walks_draft_to_completed(flow, booker, ops, driver, pr
     assert "Bole International Airport" in rider_messages[0].body
     booker_messages = [m.body for m in providers.notifier.to("+14155552671")]
     assert len(booker_messages) == 6 and "confirmed" in booker_messages[0]
-    assert len(providers.notifier.to("+251911234567")) == 1  # driver job details
+    driver_messages = providers.notifier.to("+251911234567")
+    assert len(driver_messages) == 1  # job details
+    # Times are in Addis Ababa time, the way riders and drivers read them.
+    addis = ZoneInfo("Africa/Addis_Ababa")
+    pickup = datetime.fromisoformat(final["scheduled_at"]).astimezone(addis)
+    when = f"{pickup:%d %b %Y %H:%M} Addis Ababa time"
+    assert when in rider_messages[0].body and when in driver_messages[0].body
 
 
 async def test_quote_expires(flow, booker, time):

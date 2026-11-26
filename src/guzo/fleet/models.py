@@ -27,6 +27,12 @@ class Vehicle(Document):
     class Settings:
         name = "vehicles"
         indexes = [
-            IndexModel([("plate", 1)], unique=True),
+            # A plate is unique among cars in service; a retired car can be added again.
+            IndexModel(
+                [("plate", 1)],
+                unique=True,
+                partialFilterExpression={"active": True},
+                name="plate_in_service",
+            ),
             IndexModel([("driver_id", 1)]),
         ]

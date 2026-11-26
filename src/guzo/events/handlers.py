@@ -4,10 +4,13 @@ Booking code never calls a notifier or a provider refund directly: it writes an 
 and these handlers do the rest, so new reactions do not touch booking logic.
 """
 
+from zoneinfo import ZoneInfo
+
 from beanie import PydanticObjectId
 
 from guzo.bookings.models import Booking
 from guzo.bookings.state_machine import BookingStatus
+from guzo.catalog.models import City
 from guzo.events.models import OutboxEvent
 from guzo.events.outbox import on
 from guzo.identity.models import User
@@ -61,6 +64,13 @@ async def notify_booker(event: OutboxEvent) -> None:
     await get_providers().notifier.send(to=booker.phone, body=body)
 
 
+async def _local_time(booking: Booking) -> str:
+    """The pickup time as people in the city read it, for example 30 Nov 2026 14:30."""
+    city = await City.find_one(City.code == booking.city_id)
+    local = booking.scheduled_at.astimezone(ZoneInfo(city.timezone))
+    return f"{local:%d %b %Y %H:%M} {city.name} time"
+
+
 @on("booking.assigned")
 async def send_pickup_details(event: OutboxEvent) -> None:
     """Riders get the driver and meeting point by SMS, before they travel."""
@@ -68,7 +78,7 @@ async def send_pickup_details(event: OutboxEvent) -> None:
     if driver is None:
         return
     notifier = get_providers().notifier
-    when = booking.scheduled_at.strftime("%d %b %Y %H:%M UTC")
+    when = await _local_time(booking)
     for rider in booking.riders:
         if rider.is_booker:
             continue  # already told by notify_booker

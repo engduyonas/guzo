@@ -34,13 +34,27 @@ DOCUMENT_MODELS = [
     AuditEntry,
 ]
 
+# Indexes that a renamed index replaced. Beanie does not drop old indexes, so start-up
+# drops these by name. Keep an entry until every environment has started once.
+RETIRED_INDEXES = {"vehicles": ["plate_1"]}  # unique over retired cars too
+
 _client: AsyncMongoClient | None = None
+
+
+async def drop_retired_indexes(database) -> None:
+    for collection, names in RETIRED_INDEXES.items():
+        existing = await database[collection].index_information()
+        for name in names:
+            if name in existing:
+                await database[collection].drop_index(name)
 
 
 async def init_db(settings: Settings) -> None:
     global _client
     _client = AsyncMongoClient(settings.mongo_url, tz_aware=True)
-    await init_beanie(database=_client[settings.mongo_db], document_models=DOCUMENT_MODELS)
+    database = _client[settings.mongo_db]
+    await drop_retired_indexes(database)
+    await init_beanie(database=database, document_models=DOCUMENT_MODELS)
 
 
 async def close_db() -> None:
