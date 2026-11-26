@@ -16,15 +16,3 @@ def test_committed_contract_is_current():
 def test_every_route_is_versioned(client):
     paths = set(export_openapi.create_app().openapi()["paths"])
     assert paths and all(p.startswith("/v1/") or p == "/health" for p in paths)
-
-
-def test_no_enum_reference_has_a_default():
-    """The dart-dio generator emits code that does not compile for `$ref` plus `default`."""
-    schemas = export_openapi.create_app().openapi()["components"]["schemas"]
-    offenders = [
-        f"{name}.{field}"
-        for name, schema in schemas.items()
-        for field, prop in schema.get("properties", {}).items()
-        if "$ref" in prop and "default" in prop
-    ]
-    assert offenders == []

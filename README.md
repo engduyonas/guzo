@@ -82,8 +82,8 @@ payment or SMS provider, or a non-https `GUZO_PUBLIC_BASE_URL`.
 
 Routes live under `/v1`. `openapi/guzo-v1.json` is the committed contract; regenerate it
 with `uv run python scripts/export_openapi.py` after changing the API (a test fails if
-it is stale). `scripts/generate_dart_client.sh` builds the Dart client from it into
-`clients/dart/`, using Docker or, without it, a local Java and Dart.
+it is stale). `scripts/generate_ts_client.sh` builds the TypeScript types from it into
+`clients/ts/` (needs Node). The guzo-mobile React Native app generates the same types.
 
 With the fake providers, sign-in codes and other messages are written to the API and
 worker logs (`fake sms to +251...`).
