@@ -28,8 +28,9 @@ async def test_weekly_metrics(flow, ops, booker, driver, sign_in, time):
     async def drive(booking: dict, *, arrive_late_by: int | None, finish: bool = True) -> None:
         base = f"/v1/driver/bookings/{booking['id']}"
         await driver.post(f"{base}/accept")
-        await driver.post(f"{base}/start")
         scheduled = datetime.fromisoformat(booking["scheduled_at"])
+        time.now = scheduled - timedelta(minutes=30)
+        await driver.post(f"{base}/start")
         time.now = scheduled + timedelta(minutes=arrive_late_by or -10)
         await driver.post(f"{base}/arrive")
         if finish:

@@ -383,6 +383,13 @@ async def driver_advance(booking_id: str, driver: User, target: BookingStatus) -
         _ensure_assigned_to(booking, driver)
         if target == S.EN_ROUTE and booking.assignment.accepted_at is None:
             raise Conflict("accept the job before starting", code="not_accepted")
+        if target == S.EN_ROUTE:
+            window = get_settings().driver_start_window_minutes
+            if utcnow() < booking.scheduled_at - timedelta(minutes=window):
+                raise Forbidden(
+                    f"the trip can start from {window} minutes before pickup",
+                    code="too_early_to_start",
+                )
         return await apply_transition(
             session, booking, target, actor=Actor.DRIVER, by=str(driver.id)
         )
@@ -404,6 +411,9 @@ async def mark_no_show(booking_id: str, *, actor: Actor, by: User) -> Booking:
                 )
                 if utcnow() < allowed_from:
                     raise Forbidden("the free waiting time is not over yet", code="still_waiting")
+        elif utcnow() < booking.scheduled_at:
+            # Ops may end the free waiting time early, but never before the pickup time.
+            raise Forbidden("the pickup time has not come yet", code="before_pickup")
         updated = await apply_transition(session, booking, S.NO_SHOW, actor=actor, by=str(by.id))
         refund = policies.no_show_refund(booking.policy, booking.price)
         await request_refund(session, booking_id=booking_id, amount=refund, reason="no_show")

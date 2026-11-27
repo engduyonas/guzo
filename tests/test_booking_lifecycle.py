@@ -32,7 +32,7 @@ async def assert_ledger_balanced() -> None:
     assert entries and all(total == 0 for total in by_posting.values())
 
 
-async def test_happy_path_walks_draft_to_completed(flow, booker, ops, driver, providers):
+async def test_happy_path_walks_draft_to_completed(flow, booker, ops, driver, providers, time):
     booking = await flow.quoted(booker)
     assert booking["status"] == "quoted"
     assert booking["price"] == {"amount_minor": FARE, "currency": "ETB"}
@@ -48,6 +48,7 @@ async def test_happy_path_walks_draft_to_completed(flow, booker, ops, driver, pr
     base = f"/v1/driver/bookings/{booking['id']}"
     assigned = await ops.post(f"/v1/ops/bookings/{booking['id']}/assign", {"driver_id": driver.id})
     assert assigned.json()["status"] == "assigned"
+    time.advance(days=7, hours=-1)  # flow books 7 days ahead; drivers start close to pickup
     for action, status in [
         ("accept", "assigned"),
         ("start", "en_route"),
@@ -182,7 +183,8 @@ async def test_no_show_after_waiting_window_keeps_the_fare(flow, booker, ops, dr
     early = await driver.post(url)
     assert early.status_code == 403 and early.json()["error"]["code"] == "still_waiting"
 
-    time.advance(days=1, minutes=59)
+    # Arrived 30 minutes early: waiting runs from the pickup time for 60 minutes.
+    time.advance(minutes=30 + 59)
     assert (await driver.post(url)).status_code == 403
     time.advance(minutes=2)
     response = await driver.post(url)
@@ -275,6 +277,29 @@ async def test_driver_must_accept_before_starting(flow, booker, ops, driver):
     booking = await flow.assigned(booker, ops, driver)
     response = await driver.post(f"/v1/driver/bookings/{booking['id']}/start")
     assert response.status_code == 409 and response.json()["error"]["code"] == "not_accepted"
+
+
+async def test_driver_can_start_only_close_to_pickup(flow, booker, ops, driver, time):
+    booking = await flow.assigned(booker, ops, driver, days_ahead=2)
+    base = f"/v1/driver/bookings/{booking['id']}"
+    await driver.post(f"{base}/accept")
+    early = await driver.post(f"{base}/start")
+    assert early.status_code == 403 and early.json()["error"]["code"] == "too_early_to_start"
+
+    time.advance(days=2, minutes=-181)
+    assert (await driver.post(f"{base}/start")).status_code == 403
+    time.advance(minutes=1)  # exactly 180 minutes before pickup
+    assert (await driver.post(f"{base}/start")).json()["status"] == "en_route"
+
+
+async def test_ops_can_mark_a_no_show_only_from_the_pickup_time(flow, booker, ops, driver, time):
+    booking = await flow.arrived(booker, ops, driver)  # 30 minutes before pickup
+    url = f"/v1/ops/bookings/{booking['id']}/no-show"
+    early = await ops.post(url)
+    assert early.status_code == 403 and early.json()["error"]["code"] == "before_pickup"
+
+    time.advance(minutes=30)  # the pickup time; free waiting is not over yet
+    assert (await ops.post(url)).json()["status"] == "no_show"
 
 
 def test_every_status_is_covered_by_these_tests():
