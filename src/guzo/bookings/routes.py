@@ -40,6 +40,7 @@ class BookingResponse(BaseModel):
     price: Money
     policy: ProductPolicy  # the terms this booking was made under
     partner_code: str | None
+    company_id: str | None
     status: BookingStatus
     status_history: list[StatusChange]
     assignment: Assignment | None
@@ -86,11 +87,13 @@ class BookingCreate(BaseModel):
     quote_id: str
     riders: list[Rider] = Field(min_length=1)
     partner_code: str | None = Field(default=None, max_length=40)
+    bill_to_company: bool = False  # the booker's company pays monthly; no online payment
 
 
 class ConfirmResponse(BaseModel):
     booking: BookingResponse
-    payment: PaymentResponse
+    payment: PaymentResponse | None  # None when the booking is billed to a company
+    failed_attempts: int = 0  # earlier payments the provider refused; tell the booker
 
 
 class Reason(BaseModel):
@@ -122,6 +125,7 @@ async def create_booking(
         riders=body.riders,
         partner_code=body.partner_code,
         idempotency_key=idempotency_key,
+        bill_to_company=body.bill_to_company,
     )
     return _out(booking)
 
@@ -167,9 +171,19 @@ async def get_assigned_driver(booking_id: str, user: Booker) -> AssignedDriver:
 
 @router.post("/{booking_id}/confirm")
 async def confirm_booking(booking_id: str, user: Booker) -> ConfirmResponse:
-    """Accept the price and open a payment. Repeat calls return the same payment."""
+    """Accept the price and open a payment. Repeat calls return the same payment.
+
+    A booking billed to a company is confirmed at once and has no payment.
+    """
     booking, payment = await service.confirm_booking(user, booking_id)
-    return ConfirmResponse(booking=_out(booking), payment=PaymentResponse.from_payment(payment))
+    failed = await Payment.find(
+        Payment.booking_id == booking_id, Payment.status == PaymentStatus.FAILED
+    ).count()
+    return ConfirmResponse(
+        booking=_out(booking),
+        payment=PaymentResponse.from_payment(payment) if payment else None,
+        failed_attempts=failed,
+    )
 
 
 @router.post("/{booking_id}/cancel")

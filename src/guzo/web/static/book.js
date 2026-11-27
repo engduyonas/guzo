@@ -18,6 +18,8 @@ const state = {
   choice: null,
   riders: [{ name: "", phone: "" }],
   iAmRiding: false,
+  company: null, // set when the signed-in booker belongs to an active company
+  billToCompany: false,
   booker: { name: "", phone: "" },
   idempotencyKey: null,
   afterSignIn: null,
@@ -95,6 +97,22 @@ function input(id, attrs, onchange) {
   return h("input", { id, ...attrs, oninput: (event) => onchange(event.target.value) });
 }
 
+// A company member can bill the ride to the company instead of paying now.
+async function loadCompany() {
+  state.company = null;
+  if (!state.session) return;
+  const mine = await api("GET", "/v1/business/company", { token: state.session.token }).catch(() => null);
+  state.company = mine && mine.company.active ? mine.company : null;
+}
+
+function billingChoice() {
+  return h("div", { class: "card" },
+    h("label", { class: "check" },
+      h("input", { type: "checkbox", checked: state.billToCompany, onchange: (event) => { state.billToCompany = event.target.checked; } }),
+      t("bill_to_company", { company: state.company.name })),
+    h("p", { class: "muted" }, t("bill_to_company_help")));
+}
+
 function tripRequest() {
   const { trip } = state;
   const other = { label: trip.label.trim(), kind: "address", zone_id: trip.zone };
@@ -162,7 +180,7 @@ function renderOptions() {
           h("strong", {}, t(option.vehicle_class)),
           option.max_seats ? h("div", { class: "muted" }, t("up_to", { seats: option.max_seats, bags: option.max_bags })) : null,
           h("div", { class: "price" }, money(option.price, state.lang))),
-        h("button", { class: "primary", onclick: () => { state.choice = option; go("details"); } }, t("choose")))),
+        h("button", { class: "primary", onclick: busy(async () => { state.choice = option; await loadCompany(); go("details"); }) }, t("choose")))),
     state.options.length ? h("p", { class: "muted" }, t("fixed_price")) : null,
     h("div", { class: "actions" }, h("button", { onclick: () => go("trip") }, t("back"))),
   );
@@ -203,7 +221,7 @@ function renderDetails() {
         if (listed === 0) throw new ApiError(0, "riders", t("need_rider"));
         if (listed > Number(state.trip.seats)) throw new ApiError(0, "riders", t("too_many_riders"));
         if (signedIn) return submitBooking();
-        state.afterSignIn = submitBooking;
+        state.afterSignIn = afterBookerSignIn;
         await api("POST", "/v1/auth/otp/request", { body: { phone: state.booker.phone } });
         go("code");
       }),
@@ -223,6 +241,7 @@ function renderDetails() {
         signedIn
           ? h("p", {}, state.session.user.phone)
           : field(t("your_phone"), input("booker-phone", { type: "tel", required: true, autocomplete: "tel", placeholder: "+1 415 555 2671", value: state.booker.phone }, (v) => { state.booker.phone = v; }))),
+      signedIn && state.company ? billingChoice() : null,
       h("div", { class: "card" },
         h("h2", {}, t("summary")),
         h("dl", {},
@@ -275,6 +294,27 @@ function renderSignIn() {
   );
 }
 
+// --- Company billing, for a booker who signed in on this booking ---------------
+
+async function afterBookerSignIn() {
+  await loadCompany();
+  if (state.company) return go("billing");
+  await submitBooking();
+}
+
+function renderBilling() {
+  show(
+    h("h1", {}, t("billing_title")),
+    h("form", { onsubmit: busy(submitBooking) },
+      billingChoice(),
+      h("div", { class: "card" },
+        h("dl", {},
+          h("dt", {}, t("vehicle")), h("dd", {}, t(state.choice.vehicle_class)),
+          h("dt", {}, t("price")), h("dd", { class: "price" }, money(state.choice.price, state.lang)))),
+      h("div", { class: "actions" }, h("button", { class: "primary", type: "submit" }, t("verify")))),
+  );
+}
+
 // --- Create the booking -------------------------------------------------------
 
 async function submitBooking() {
@@ -289,7 +329,12 @@ async function submitBooking() {
   const booking = await api("POST", "/v1/bookings", {
     token,
     headers: { "Idempotency-Key": state.idempotencyKey },
-    body: { quote_id: quote.id, riders: ridersForBooking(), partner_code: state.partner ? state.partner.code : null },
+    body: {
+      quote_id: quote.id,
+      riders: ridersForBooking(),
+      partner_code: state.partner ? state.partner.code : null,
+      bill_to_company: Boolean(state.company && state.billToCompany),
+    },
   });
   state.bookingId = booking.id;
   state.idempotencyKey = null;
@@ -305,12 +350,18 @@ async function loadStatus() {
   const cacheKey = `guzo.booking.${state.bookingId}`;
   try {
     const booking = await api("GET", `/v1/bookings/${state.bookingId}`, { token });
-    const view = { booking, driver: null, payment: null };
+    const view = { booking, driver: null, payment: null, failedAttempts: 0 };
+    if (!state.partner && booking.partner_code) {
+      // Back from the checkout, the link no longer names the partner.
+      state.partner = await api("GET", `/v1/partners/${encodeURIComponent(booking.partner_code)}`).catch(() => null);
+    }
     if (booking.assignment) {
       view.driver = await api("GET", `/v1/bookings/${booking.id}/driver`, { token }).catch(() => null);
     }
     if (booking.status === "awaiting_payment") {
-      view.payment = (await api("POST", `/v1/bookings/${booking.id}/confirm`, { token })).payment;
+      const confirm = await api("POST", `/v1/bookings/${booking.id}/confirm`, { token });
+      view.payment = confirm.payment;
+      view.failedAttempts = confirm.failed_attempts;
     }
     localStorage.setItem(cacheKey, JSON.stringify(view));
     return { ...view, stale: false };
@@ -341,7 +392,7 @@ async function renderStatus() {
     if (error.status === 401) return go("signin");
     return show(h("div", { class: "error" }, error.message), h("button", { onclick: render }, t("refresh")));
   }
-  const { booking, driver, payment, stale } = view;
+  const { booking, driver, payment, failedAttempts, stale } = view;
   let confirmingCancel = false;
 
   const paint = () => show(
@@ -351,6 +402,7 @@ async function renderStatus() {
     booking.status === "awaiting_payment" && payment && payment.checkout_url
       ? h("div", { class: "card" },
           h("h2", {}, t("pay_title")),
+          failedAttempts ? h("div", { class: "error", role: "alert" }, t("payment_failed")) : null,
           h("p", { class: "muted" }, t("pay_help", { time: addisTime(booking.payment_expires_at, state.lang) })),
           h("p", { class: "price" }, money(booking.price, state.lang)),
           h("div", { class: "actions" }, h("a", { class: "button primary", href: checkoutLink(payment) }, t("pay_now"))))
@@ -371,10 +423,10 @@ async function renderStatus() {
         h("dt", {}, t("time")), h("dd", {}, `${addisTime(booking.scheduled_at, state.lang)} (${t("addis_time")})`),
         h("dt", {}, t("vehicle")), h("dd", {}, t(booking.vehicle_class)),
         h("dt", {}, t("riders")), h("dd", {}, booking.riders.map((r) => r.name).join(", ")),
-        h("dt", {}, t("price")), h("dd", {}, money(booking.price, state.lang)))),
+        h("dt", {}, t("price")), h("dd", {}, money(booking.price, state.lang), booking.company_id ? ` · ${t("billed_to_company")}` : ""))),
     ["confirmed", "assigned"].includes(booking.status) && !stale
       ? h("div", { class: "card" },
-          h("p", { class: "muted" }, t("cancel_help", { hours: booking.policy.free_cancel_hours })),
+          h("p", { class: "muted" }, t(booking.company_id ? "cancel_help_company" : "cancel_help", { hours: booking.policy.free_cancel_hours })),
           confirmingCancel
             ? h("div", { class: "actions" },
                 h("button", { class: "danger", onclick: busy(async () => {
@@ -399,7 +451,7 @@ async function renderStatus() {
 // --- Start --------------------------------------------------------------------
 
 function render() {
-  const steps = { trip: renderTrip, options: renderOptions, details: renderDetails, code: renderCode, signin: renderSignIn, status: renderStatus };
+  const steps = { trip: renderTrip, options: renderOptions, details: renderDetails, code: renderCode, billing: renderBilling, signin: renderSignIn, status: renderStatus };
   steps[state.step]();
 }
 

@@ -72,5 +72,11 @@
   "status_expired": "Expired before payment",
   "status_no_show": "Rider was not found",
   "need_rider": "Add at least one rider, or tick that you are riding.",
-  "too_many_riders": "There are more riders listed than seats booked."
+  "too_many_riders": "There are more riders listed than seats booked.",
+  "bill_to_company": "Bill to {company}",
+  "bill_to_company_help": "Your company pays at the end of the month. You do not pay now.",
+  "billed_to_company": "Billed to your company",
+  "billing_title": "How do you want to pay?",
+  "cancel_help_company": "Free cancellation up to {hours} hours before pickup. After that, the fee goes on your company's monthly statement.",
+  "payment_failed": "Your last payment did not go through. No money was taken. Please try again."
 }

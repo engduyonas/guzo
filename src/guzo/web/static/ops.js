@@ -6,13 +6,15 @@ const app = document.getElementById("app");
 const nav = document.getElementById("nav");
 const STATUSES = ["quoted", "awaiting_payment", "confirmed", "assigned", "en_route", "arrived",
   "in_progress", "completed", "cancelled", "expired", "no_show"];
-const TABS = { bookings: "Bookings", drivers: "Drivers", prices: "Prices", partners: "Partners", metrics: "Weekly numbers", audit: "Audit log" };
+const TABS = { bookings: "Bookings", drivers: "Drivers", prices: "Prices", partners: "Partners", companies: "Companies", metrics: "Weekly numbers", audit: "Audit log" };
 
 const state = {
   token: sessionStorage.getItem("guzo.ops.token"),
   tab: "bookings",
   statusFilter: "confirmed",
   bookingId: null,
+  companyId: null,
+  month: new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Addis_Ababa" }).slice(0, 7),
   error: null,
 };
 
@@ -116,6 +118,10 @@ async function renderBooking() {
     call("GET", `/v1/ops/audit?target_type=booking&target_id=${id}`),
     call("GET", "/v1/ops/drivers?verified=true"),
   ]);
+  const company = booking.company_id
+    ? (await call("GET", "/v1/ops/companies")).find((c) => c.id === booking.company_id)
+    : null;
+  const billedTo = company ? company.name : booking.company_id;
   const act = (path, body) => busy(async (event) => {
     await call("POST", `/v1/ops/bookings/${id}/${path}`, body ? body(formValues(event)) : {});
   });
@@ -142,9 +148,11 @@ async function renderBooking() {
   if (["confirmed", "assigned"].includes(booking.status)) {
     controls.push(h("form", { class: "card", onsubmit: act("cancel", (v) => ({ reason: v.cancel_reason })) },
       h("h2", {}, "Cancel"),
-      h("p", { class: "muted" }, `The refund follows this booking's terms: free cancellation up to ${booking.policy.free_cancel_hours} h before pickup, then a ${booking.policy.late_cancel_fee_pct}% fee.`),
+      h("p", { class: "muted" }, billedTo
+        ? `Billed to ${billedTo}. A cancellation by operations is not charged to the company.`
+        : `The refund follows this booking's terms: free cancellation up to ${booking.policy.free_cancel_hours} h before pickup, then a ${booking.policy.late_cancel_fee_pct}% fee.`),
       field("Reason", reason("cancel_reason")),
-      h("div", { class: "actions" }, h("button", { class: "danger", type: "submit" }, "Cancel booking and refund per policy"))));
+      h("div", { class: "actions" }, h("button", { class: "danger", type: "submit" }, billedTo ? "Cancel booking" : "Cancel booking and refund per policy"))));
   }
   if (booking.status === "arrived") {
     controls.push(h("form", { class: "card", onsubmit: act("no-show") },
@@ -166,12 +174,13 @@ async function renderBooking() {
       h("dt", {}, "Riders"), h("dd", {}, booking.riders.map((r) => `${r.name} ${r.phone}${r.is_booker ? " (booker)" : ""}`).join("; ")),
       h("dt", {}, "Price"), h("dd", {}, money(booking.price)),
       h("dt", {}, "Partner"), h("dd", {}, booking.partner_code || "—"),
+      h("dt", {}, "Paid by"), h("dd", {}, billedTo ? `${billedTo} (monthly statement)` : "Booker, online"),
       h("dt", {}, "Driver"), h("dd", {}, booking.assignment
         ? `${assigned ? assigned.driver.name || assigned.driver.phone : booking.assignment.driver_id}${booking.assignment.accepted_at ? ", accepted" : ", not yet accepted"}`
         : "—"))),
     controls,
     h("h2", {}, "Money"),
-    cash.payments.length + cash.refunds.length === 0 ? h("p", { class: "muted" }, "No payments yet.") : table(
+    cash.payments.length + cash.refunds.length === 0 ? h("p", { class: "muted" }, billedTo ? `No online payment. The ride is on ${billedTo}'s monthly statement.` : "No payments yet.") : table(
       ["Type", "Amount", "Status", "Detail"],
       [
         ...cash.payments.map((p) => h("tr", {}, h("td", {}, "Payment"), h("td", {}, money(p.amount)), h("td", {}, p.status), h("td", {}, p.provider))),
@@ -292,6 +301,109 @@ async function renderPartners() {
   );
 }
 
+// --- Companies ----------------------------------------------------------------
+
+const KINDS = { ride: "Ride", no_show: "No-show", late_cancel: "Late cancellation" };
+
+function planFields(plan) {
+  return h("div", { class: "row" },
+    field("Monthly fee", text("fee", { required: true, inputmode: "decimal", placeholder: "5000.00", value: plan ? (plan.monthly_fee.amount_minor / 100).toFixed(2) : null })),
+    field("Currency", choose("currency", [["ETB", "ETB"], ["USD", "USD"]], plan ? plan.monthly_fee.currency : "ETB")),
+    field("Included rides", text("included_rides", { type: "number", min: 0, required: true, value: plan ? plan.included_rides : null })));
+}
+
+function planValue(v) {
+  const amount = toMinor(v.fee);
+  if (amount === null) throw new ApiError(0, "amount", "Enter the monthly fee as a number, for example 5000 or 5000.50.");
+  return { monthly_fee: { amount_minor: amount, currency: v.currency }, included_rides: Number(v.included_rides) };
+}
+
+async function renderCompanies() {
+  const companies = await call("GET", "/v1/ops/companies");
+  show(
+    h("h1", {}, "Companies"),
+    h("p", { class: "muted" }, "A company's members can bill rides to it. They pay nothing online; the company pays the monthly fee and any rides past the included ones."),
+    companies.length === 0 ? h("p", { class: "muted" }, "No companies yet.") : table(
+      ["Name", "Billing email", "Monthly fee", "Included rides", "Status"],
+      companies.map((c) => h("tr", { class: "clickable", onclick: () => { state.companyId = c.id; render(); } },
+        h("td", {}, c.name), h("td", {}, c.billing_email), h("td", {}, money(c.plan.monthly_fee)),
+        h("td", {}, c.plan.included_rides), h("td", {}, h("span", { class: "status" }, c.active ? "active" : "inactive"))))),
+    h("form", { class: "card", onsubmit: busy(async (event) => {
+      const v = formValues(event);
+      const company = await call("POST", "/v1/ops/companies", { name: v.name, billing_email: v.billing_email, plan: planValue(v) });
+      state.companyId = company.id;
+    }) },
+      h("h2", {}, "Add a company"),
+      h("div", { class: "row" },
+        field("Name", text("name", { required: true, maxlength: 120 })),
+        field("Billing email", text("billing_email", { type: "email", required: true }))),
+      planFields(null),
+      h("div", { class: "actions" }, h("button", { class: "primary", type: "submit" }, "Add company"))),
+  );
+}
+
+async function renderCompany() {
+  const id = state.companyId;
+  const [companies, members, statement] = await Promise.all([
+    call("GET", "/v1/ops/companies"),
+    call("GET", `/v1/ops/companies/${id}/members`),
+    call("GET", `/v1/ops/companies/${id}/statement?month=${state.month}`),
+  ]);
+  const company = companies.find((c) => c.id === id);
+  if (!company) { state.companyId = null; return renderCompanies(); }
+  const month = h("input", { id: "month", type: "month", value: state.month, required: true });
+  month.addEventListener("change", () => { if (month.value) { state.month = month.value; render(); } });
+
+  show(
+    h("button", { class: "link", onclick: () => { state.companyId = null; render(); } }, "← All companies"),
+    h("h1", {}, `${company.name} `, h("span", { class: "status" }, company.active ? "active" : "inactive")),
+    h("form", { class: "card", onsubmit: busy(async (event) => {
+      const v = formValues(event);
+      await call("PATCH", `/v1/ops/companies/${id}`, { name: v.name, billing_email: v.billing_email, plan: planValue(v) });
+    }) },
+      h("h2", {}, "Details and plan"),
+      h("div", { class: "row" },
+        field("Name", text("name", { required: true, maxlength: 120, value: company.name })),
+        field("Billing email", text("billing_email", { type: "email", required: true, value: company.billing_email }))),
+      planFields(company.plan),
+      h("p", { class: "muted" }, "A plan change applies to every statement, including this month's."),
+      h("div", { class: "actions" },
+        h("button", { class: "primary", type: "submit" }, "Save"),
+        h("button", { class: company.active ? "danger" : null, type: "button", onclick: busy(() => call("PATCH", `/v1/ops/companies/${id}`, { active: !company.active })) },
+          company.active ? "Deactivate (members can no longer bill it)" : "Reactivate"))),
+    h("h2", {}, "Members"),
+    members.length === 0 ? h("p", { class: "muted" }, "No members yet. Add an admin first; the admin can then add staff from the app.") : table(
+      ["Name", "Phone", "Role", ""],
+      members.map((m) => h("tr", {},
+        h("td", {}, m.name || "—"), h("td", {}, m.phone || "—"), h("td", {}, m.role),
+        h("td", {}, h("button", { class: "link", onclick: busy(() => call("POST", `/v1/ops/companies/${id}/members/${m.user_id}/remove`, {})) }, "Remove"))))),
+    h("form", { class: "card", onsubmit: busy(async (event) => {
+      const v = formValues(event);
+      await call("POST", `/v1/ops/companies/${id}/members`, { phone: v.phone, name: v.member_name || null, role: v.role });
+    }) },
+      h("h2", {}, "Add a member"),
+      h("p", { class: "muted" }, "A person who has not signed in yet gets an account now; it is verified on their first sign-in with a phone code."),
+      h("div", { class: "row" },
+        field("Phone", text("phone", { type: "tel", required: true, placeholder: "+251911000000" })),
+        field("Name", text("member_name", { maxlength: 120 })),
+        field("Role", choose("role", [["booker", "booker"], ["admin", "admin"]]))),
+      h("div", { class: "actions" }, h("button", { class: "primary", type: "submit" }, "Add member"))),
+    h("h2", {}, "Statement"),
+    h("div", { class: "row" }, field("Month", month)),
+    h("div", { class: "card" }, h("dl", {},
+      h("dt", {}, "Monthly fee"), h("dd", {}, money(statement.plan.monthly_fee)),
+      h("dt", {}, "Included rides used"), h("dd", {}, `${statement.rides_used} of ${statement.plan.included_rides}`),
+      h("dt", {}, "Extras"), h("dd", {}, money(statement.extras)),
+      h("dt", {}, "Total"), h("dd", {}, h("strong", {}, money(statement.total))))),
+    statement.lines.length === 0 ? h("p", { class: "muted" }, "No billable rides this month.") : table(
+      ["Pickup (Addis)", "Ref", "Type", "From", "To", "Riders", "Charge"],
+      statement.lines.map((l) => h("tr", {},
+        h("td", {}, addisTime(l.scheduled_at)), h("td", {}, ref(l.booking_id)), h("td", {}, KINDS[l.kind] || l.kind),
+        h("td", {}, l.pickup), h("td", {}, l.dropoff), h("td", {}, l.riders.join(", ")),
+        h("td", {}, l.included ? "Included" : money(l.charge))))),
+  );
+}
+
 // --- Weekly numbers -----------------------------------------------------------
 
 async function renderMetrics() {
@@ -300,11 +412,11 @@ async function renderMetrics() {
   const split = (counts) => Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ") || "—";
   show(
     h("h1", {}, "Weekly numbers"),
-    h("p", { class: "muted" }, "Weeks start on Monday, Addis Ababa time. Demand counts bookings made in the week; service counts paid trips scheduled for the week. On time means the driver was at pickup at or before the scheduled time."),
+    h("p", { class: "muted" }, "Weeks start on Monday, Addis Ababa time. Demand counts bookings made in the week; service counts confirmed trips scheduled for the week. Confirmed means paid online or billed to a company. On time means the driver was at pickup at or before the scheduled time."),
     h("h2", {}, "Demand"),
-    table(["Week of", "Bookings made", "Paid", "By channel", "Bookers", "Returning (90 days)"],
+    table(["Week of", "Bookings made", "Confirmed", "Billed to companies", "By channel", "Bookers", "Returning (90 days)"],
       weeks.map((w) => h("tr", {},
-        h("td", {}, w.week_start), h("td", {}, w.bookings_created), h("td", {}, w.bookings_paid),
+        h("td", {}, w.week_start), h("td", {}, w.bookings_created), h("td", {}, w.bookings_paid), h("td", {}, w.bookings_billed),
         h("td", {}, split(w.paid_by_channel)), h("td", {}, w.bookers), h("td", {}, w.repeat_bookers)))),
     h("h2", {}, "Service"),
     table(["Week of", "Trips", "Completed", "On time", "Cancelled", "No-show", "Median time to assign"],
@@ -339,11 +451,11 @@ async function render() {
   nav.replaceChildren(
     ...Object.entries(TABS).map(([key, label]) => h("button", {
       "aria-current": state.tab === key ? "page" : null,
-      onclick: () => { state.tab = key; state.bookingId = null; state.error = null; render(); },
+      onclick: () => { state.tab = key; state.bookingId = null; state.companyId = null; state.error = null; render(); },
     }, label)),
     h("button", { onclick: signOut }, "Sign out"),
   );
-  const pages = { bookings: state.bookingId ? renderBooking : renderBookings, drivers: renderDrivers, prices: renderPrices, partners: renderPartners, metrics: renderMetrics, audit: renderAudit };
+  const pages = { bookings: state.bookingId ? renderBooking : renderBookings, drivers: renderDrivers, prices: renderPrices, partners: renderPartners, companies: state.companyId ? renderCompany : renderCompanies, metrics: renderMetrics, audit: renderAudit };
   try {
     await pages[state.tab]();
   } catch (error) {

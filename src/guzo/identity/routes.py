@@ -79,6 +79,10 @@ async def verify_otp(body: OtpVerify) -> TokenResponse:
             user = await User.find_one(User.phone == body.phone)
     if not user.is_active or user.role == Role.OPS:
         raise Unauthorized("this account cannot sign in with a phone code")
+    if user.role == Role.BOOKER and not user.is_verified:
+        # A company added this booker before their first sign-in; the code proves the phone.
+        user.is_verified = True
+        await user.save()
     return _token(user)
 
 

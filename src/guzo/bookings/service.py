@@ -9,6 +9,7 @@ from guzo.audit import service as audit
 from guzo.bookings import policies
 from guzo.bookings.models import Assignment, Booking, Rider, StatusChange
 from guzo.bookings.state_machine import Actor, BookingStatus, check_transition
+from guzo.business.service import billing_company
 from guzo.catalog.models import Product
 from guzo.common.clock import utcnow
 from guzo.common.ids import object_id
@@ -91,9 +92,11 @@ async def create_booking(
     riders: list[Rider],
     partner_code: str | None,
     idempotency_key: str | None,
+    bill_to_company: bool = False,
 ) -> Booking:
     """Create a booking from a quote. It starts as a draft and becomes quoted at once."""
     booker_id = str(booker.id)
+    company = await billing_company(booker) if bill_to_company else None
 
     async def existing() -> Booking | None:
         if idempotency_key is None:
@@ -114,6 +117,10 @@ async def create_booking(
             raise Conflict("the quote has expired, request a new one", code="quote_expired")
         request = quote.request
         _validate_riders(riders, request.seats)
+        if company is not None and quote.price.currency != company.plan.monthly_fee.currency:
+            raise Unprocessable(
+                "the company is billed in another currency", code="currency_mismatch"
+            )
         product = await Product.find_one(
             Product.city_id == request.city_id,
             Product.code == request.product_code,
@@ -145,6 +152,7 @@ async def create_booking(
             quote_id=quote_id,
             partner_code=partner.code if partner else None,
             partner_commission_pct=partner.commission_pct if partner else None,
+            company_id=str(company.id) if company else None,
             status=S.DRAFT,
             status_history=[
                 StatusChange(
@@ -167,12 +175,18 @@ async def create_booking(
         raise Conflict("this quote was already used for a booking", code="quote_used") from exc
 
 
-async def confirm_booking(booker: User, booking_id: str) -> tuple[Booking, Payment]:
+async def confirm_booking(booker: User, booking_id: str) -> tuple[Booking, Payment | None]:
     """The booker accepts the price. Opens a payment with the provider.
 
     Safe to call again: a repeat returns the same payment, and retries the provider
-    if the first call did not get through.
+    if the first call did not get through. A booking billed to a company is confirmed
+    at once, with no payment.
     """
+    booking = await get_booking(booking_id)
+    if booking.booker_id != str(booker.id):
+        raise NotFound("booking not found")
+    if booking.company_id is not None:
+        return await _confirm_for_company(booker, booking_id), None
     provider = get_providers().payments
 
     async def txn(session: AsyncClientSession) -> tuple[Booking, Payment]:
@@ -237,6 +251,25 @@ async def confirm_booking(booker: User, booking_id: str) -> tuple[Booking, Payme
         payment.checkout_url = intent.checkout_url
         await payment.save()
     return booking, payment
+
+
+async def _confirm_for_company(booker: User, booking_id: str) -> Booking:
+    await billing_company(booker)  # still a member of an active company
+
+    async def txn(session: AsyncClientSession) -> Booking:
+        booking = await get_booking(booking_id, session)
+        if booking.status not in (S.QUOTED, S.EXPIRED, S.CANCELLED):
+            return booking  # a repeat call
+        if booking.status == S.QUOTED and booking.quote_expires_at <= utcnow():
+            raise Conflict("the quote has expired, request a new one", code="quote_expired")
+        booking = await apply_transition(
+            session, booking, S.AWAITING_PAYMENT, actor=Actor.BOOKER, by=str(booker.id)
+        )
+        return await apply_transition(
+            session, booking, S.CONFIRMED, actor=Actor.SYSTEM, reason="billed to company"
+        )
+
+    return await in_transaction(txn)
 
 
 async def cancel_booking(booking_id: str, *, actor: Actor, by: User, reason: str | None) -> Booking:

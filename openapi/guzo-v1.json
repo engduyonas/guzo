@@ -203,6 +203,11 @@
       },
       "BookingCreate": {
         "properties": {
+          "bill_to_company": {
+            "default": false,
+            "title": "Bill To Company",
+            "type": "boolean"
+          },
           "partner_code": {
             "anyOf": [
               {
@@ -282,6 +287,17 @@
           "city_id": {
             "title": "City Id",
             "type": "string"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
           },
           "created_at": {
             "format": "date-time",
@@ -404,6 +420,7 @@
           "price",
           "policy",
           "partner_code",
+          "company_id",
           "status",
           "status_history",
           "assignment",
@@ -451,13 +468,153 @@
         "title": "ClientStatus",
         "type": "object"
       },
+      "CompanyCreate": {
+        "properties": {
+          "billing_email": {
+            "format": "email",
+            "title": "Billing Email",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/CompanyPlan"
+          }
+        },
+        "required": [
+          "name",
+          "billing_email",
+          "plan"
+        ],
+        "title": "CompanyCreate",
+        "type": "object"
+      },
+      "CompanyPlan": {
+        "description": "What a company pays each month and how many rides that covers.",
+        "properties": {
+          "included_rides": {
+            "minimum": 0.0,
+            "title": "Included Rides",
+            "type": "integer"
+          },
+          "monthly_fee": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "monthly_fee",
+          "included_rides"
+        ],
+        "title": "CompanyPlan",
+        "type": "object"
+      },
+      "CompanyResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "billing_email": {
+            "title": "Billing Email",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/CompanyPlan"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "billing_email",
+          "plan",
+          "active"
+        ],
+        "title": "CompanyResponse",
+        "type": "object"
+      },
+      "CompanyUpdate": {
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "billing_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billing Email"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompanyPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CompanyUpdate",
+        "type": "object"
+      },
       "ConfirmResponse": {
         "properties": {
           "booking": {
             "$ref": "#/components/schemas/BookingResponse"
           },
+          "failed_attempts": {
+            "default": 0,
+            "title": "Failed Attempts",
+            "type": "integer"
+          },
           "payment": {
-            "$ref": "#/components/schemas/PaymentResponse"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -620,6 +777,94 @@
         "title": "KnownPlaceResponse",
         "type": "object"
       },
+      "LineKind": {
+        "enum": [
+          "ride",
+          "no_show",
+          "late_cancel"
+        ],
+        "title": "LineKind",
+        "type": "string"
+      },
+      "MemberCreate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MemberRole"
+          }
+        },
+        "required": [
+          "phone",
+          "role"
+        ],
+        "title": "MemberCreate",
+        "type": "object"
+      },
+      "MemberResponse": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MemberRole"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "phone",
+          "role"
+        ],
+        "title": "MemberResponse",
+        "type": "object"
+      },
+      "MemberRole": {
+        "enum": [
+          "admin",
+          "booker"
+        ],
+        "title": "MemberRole",
+        "type": "string"
+      },
       "Money": {
         "description": "An amount in minor units (santim, cents). Never a float.",
         "properties": {
@@ -636,6 +881,22 @@
           "currency"
         ],
         "title": "Money",
+        "type": "object"
+      },
+      "MyCompany": {
+        "properties": {
+          "company": {
+            "$ref": "#/components/schemas/CompanyResponse"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MemberRole"
+          }
+        },
+        "required": [
+          "company",
+          "role"
+        ],
+        "title": "MyCompany",
         "type": "object"
       },
       "OpsLogin": {
@@ -1358,6 +1619,109 @@
         "title": "Role",
         "type": "string"
       },
+      "Statement": {
+        "properties": {
+          "company_id": {
+            "title": "Company Id",
+            "type": "string"
+          },
+          "company_name": {
+            "title": "Company Name",
+            "type": "string"
+          },
+          "extras": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/StatementLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/CompanyPlan"
+          },
+          "rides_used": {
+            "title": "Rides Used",
+            "type": "integer"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "company_id",
+          "company_name",
+          "month",
+          "plan",
+          "rides_used",
+          "lines",
+          "extras",
+          "total"
+        ],
+        "title": "Statement",
+        "type": "object"
+      },
+      "StatementLine": {
+        "properties": {
+          "booker_id": {
+            "title": "Booker Id",
+            "type": "string"
+          },
+          "booking_id": {
+            "title": "Booking Id",
+            "type": "string"
+          },
+          "charge": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "dropoff": {
+            "title": "Dropoff",
+            "type": "string"
+          },
+          "included": {
+            "title": "Included",
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LineKind"
+          },
+          "pickup": {
+            "title": "Pickup",
+            "type": "string"
+          },
+          "riders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Riders",
+            "type": "array"
+          },
+          "scheduled_at": {
+            "format": "date-time",
+            "title": "Scheduled At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "booking_id",
+          "booker_id",
+          "scheduled_at",
+          "pickup",
+          "dropoff",
+          "riders",
+          "kind",
+          "included",
+          "charge"
+        ],
+        "title": "StatementLine",
+        "type": "object"
+      },
       "StatusChange": {
         "properties": {
           "actor": {
@@ -1811,6 +2175,10 @@
             "title": "Bookers",
             "type": "integer"
           },
+          "bookings_billed": {
+            "title": "Bookings Billed",
+            "type": "integer"
+          },
           "bookings_created": {
             "title": "Bookings Created",
             "type": "integer"
@@ -1911,6 +2279,7 @@
           "week_start",
           "bookings_created",
           "bookings_paid",
+          "bookings_billed",
           "paid_by_product",
           "paid_by_channel",
           "bookers",
@@ -2431,7 +2800,7 @@
     },
     "/v1/bookings/{booking_id}/confirm": {
       "post": {
-        "description": "Accept the price and open a payment. Repeat calls return the same payment.",
+        "description": "Accept the price and open a payment. Repeat calls return the same payment.\n\nA booking billed to a company is confirmed at once and has no payment.",
         "operationId": "confirm_booking",
         "parameters": [
           {
@@ -2522,6 +2891,252 @@
         "summary": "Get Assigned Driver",
         "tags": [
           "bookings"
+        ]
+      }
+    },
+    "/v1/business/bookings": {
+      "get": {
+        "description": "Every booking billed to the company with a pickup in the month (UTC).",
+        "operationId": "company_bookings",
+        "parameters": [
+          {
+            "description": "YYYY-MM",
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "description": "YYYY-MM",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BookingResponse"
+                  },
+                  "title": "Response Company Bookings",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Company Bookings",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/v1/business/company": {
+      "get": {
+        "description": "The company this booker can bill rides to, and their role there.",
+        "operationId": "my_company",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyCompany"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "My Company",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/v1/business/members": {
+      "get": {
+        "operationId": "list_members",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MemberResponse"
+                  },
+                  "title": "Response List Members",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Members",
+        "tags": [
+          "business"
+        ]
+      },
+      "post": {
+        "operationId": "add_member",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Member",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/v1/business/members/{user_id}/remove": {
+      "post": {
+        "operationId": "remove_member",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Member",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/v1/business/statement": {
+      "get": {
+        "operationId": "company_statement",
+        "parameters": [
+          {
+            "description": "YYYY-MM",
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "description": "YYYY-MM",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Statement"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Company Statement",
+        "tags": [
+          "business"
         ]
       }
     },
@@ -3846,6 +4461,358 @@
         ],
         "summary": "Set Zone",
         "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/companies": {
+      "get": {
+        "operationId": "list_companies",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CompanyResponse"
+                  },
+                  "title": "Response List Companies",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Companies",
+        "tags": [
+          "business",
+          "ops"
+        ]
+      },
+      "post": {
+        "operationId": "create_company",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompanyCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Company",
+        "tags": [
+          "business",
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/companies/{company_id}": {
+      "patch": {
+        "operationId": "update_company",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "title": "Company Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompanyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Company",
+        "tags": [
+          "business",
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/companies/{company_id}/members": {
+      "get": {
+        "operationId": "ops_list_members",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "title": "Company Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MemberResponse"
+                  },
+                  "title": "Response Ops List Members",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ops List Members",
+        "tags": [
+          "business",
+          "ops"
+        ]
+      },
+      "post": {
+        "operationId": "ops_add_member",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "title": "Company Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ops Add Member",
+        "tags": [
+          "business",
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/companies/{company_id}/members/{user_id}/remove": {
+      "post": {
+        "operationId": "ops_remove_member",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "title": "Company Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ops Remove Member",
+        "tags": [
+          "business",
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/companies/{company_id}/statement": {
+      "get": {
+        "operationId": "ops_statement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "title": "Company Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "YYYY-MM",
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "description": "YYYY-MM",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Statement"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ops Statement",
+        "tags": [
+          "business",
           "ops"
         ]
       }

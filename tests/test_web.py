@@ -19,6 +19,14 @@ async def test_pages_are_served_with_a_strict_content_policy(client):
     assert script.status_code == 200 and "javascript" in script.headers["content-type"]
 
 
+async def test_static_files_are_checked_for_a_newer_copy(client):
+    for path in ("/static/book.js", "/static/ops.js", "/static/i18n/am.json"):
+        response = await client.get(path)
+        assert response.headers["cache-control"] == "no-cache"
+        again = await client.get(path, headers={"If-None-Match": response.headers["etag"]})
+        assert again.status_code == 304
+
+
 def test_pages_have_no_inline_script_or_html_injection():
     for page in STATIC.glob("*.html"):
         assert "<script>" not in page.read_text() and "onclick=" not in page.read_text()
@@ -47,6 +55,18 @@ async def test_fake_checkout_pays_a_booking(flow, booker, client):
     assert paid.status_code == 204
     assert (await booker.get(f"/v1/bookings/{booking['id']}")).json()["status"] == "confirmed"
     assert (await client.post("/dev/pay/fake_unknown", json={})).status_code == 404
+
+
+async def test_a_failed_payment_is_reported_and_can_be_retried(flow, booker, client):
+    booking, payment = await flow.awaiting_payment(booker)
+    confirm = f"/v1/bookings/{booking['id']}/confirm"
+    assert (await booker.post(confirm)).json()["failed_attempts"] == 0
+
+    path = payment["checkout_url"].removeprefix("http://localhost:8000")
+    assert (await client.post(path, json={"status": "failed"})).status_code == 204
+    retry = (await booker.post(confirm)).json()
+    assert retry["failed_attempts"] == 1
+    assert retry["payment"]["provider_ref"] != payment["provider_ref"]
 
 
 async def test_a_typed_address_needs_no_coordinates(booker, time):

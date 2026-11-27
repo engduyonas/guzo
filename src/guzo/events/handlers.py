@@ -30,6 +30,7 @@ BOOKER_MESSAGES: dict[BookingStatus, str] = {
     S.EXPIRED: "Guzo: booking {ref} expired before it was paid.",
     S.NO_SHOW: "Guzo: the driver could not find the rider for booking {ref}.",
 }
+COMPANY_CONFIRMED = "Guzo: booking {ref} is confirmed and will be billed to your company."
 
 
 async def _load(event: OutboxEvent) -> tuple[Booking, User | None]:
@@ -53,7 +54,10 @@ async def notify_booker(event: OutboxEvent) -> None:
     # A dropout sends the booking back to confirmed; do not announce payment again.
     if event.payload["to"] == S.CONFIRMED.value and event.payload["from"] == S.ASSIGNED.value:
         return
-    body = BOOKER_MESSAGES[BookingStatus(event.payload["to"])].format(
+    template = BOOKER_MESSAGES[BookingStatus(event.payload["to"])]
+    if event.payload["to"] == S.CONFIRMED.value and booking.company_id is not None:
+        template = COMPANY_CONFIRMED
+    body = template.format(
         ref=_ref(booking),
         pickup=booking.pickup.label,
         driver=(driver.name if driver and driver.name else "A Guzo driver"),
