@@ -32,6 +32,9 @@ class Settings(BaseSettings):
 
     quote_ttl_minutes: int = 15
     payment_ttl_minutes: int = 30
+    # A driver can start a trip only this long before pickup, so a mistap days ahead
+    # cannot move a booking along or tell the booker the driver is on the way.
+    driver_start_window_minutes: int = 180
 
     # Oldest app builds still allowed to talk to this API. Raise to retire old versions.
     min_android_version: str = "0.0.0"

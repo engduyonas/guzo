@@ -77,6 +77,8 @@ payment or SMS provider, or a non-https `GUZO_PUBLIC_BASE_URL`.
 - **Old app versions:** apps call `/v1/meta/client`; raise `GUZO_MIN_ANDROID_VERSION` or
   `GUZO_MIN_IOS_VERSION` to make older builds update.
 - **Weekly numbers:** `/v1/ops/metrics/weekly`, also a tab in the ops console.
+- **Driver start window:** a driver can start a trip from `GUZO_DRIVER_START_WINDOW_MINUTES`
+  (default 180) before pickup. Ops can mark a no-show from the pickup time.
 
 ## API contract
 

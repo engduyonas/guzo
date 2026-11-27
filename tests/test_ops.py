@@ -235,6 +235,7 @@ async def test_partner_codes_attribute_bookings_and_commission(
     payment = (await booker.post(f"/v1/bookings/{completed['id']}/confirm")).json()["payment"]
     await flow.pay(payment)
     await ops.post(f"/v1/ops/bookings/{completed['id']}/assign", {"driver_id": driver.id})
+    time.advance(days=3, minutes=-30)  # drivers start close to pickup
     for action in ("accept", "start", "arrive", "pickup", "complete"):
         await driver.post(f"/v1/driver/bookings/{completed['id']}/{action}")
 

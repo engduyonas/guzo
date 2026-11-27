@@ -228,6 +228,8 @@ def flow(client, providers, time):
 
         async def arrived(self, booker: Session, ops: Session, driver: Session, **kwargs) -> dict:
             booking = await self.assigned(booker, ops, driver, **kwargs)
+            # Drivers can only start close to pickup; arrive 30 minutes early.
+            time.now = datetime.fromisoformat(booking["scheduled_at"]) - timedelta(minutes=30)
             for action in ("accept", "start", "arrive"):
                 response = await driver.post(f"/v1/driver/bookings/{booking['id']}/{action}")
                 assert response.status_code == 200, response.text
