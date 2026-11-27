@@ -131,6 +131,7 @@ async def test_statement_uses_included_rides_then_charges_extras(ops, sign_in, d
     response = await ops.post(f"/v1/ops/bookings/{ops_cancel['id']}/cancel")
     assert response.status_code == 200, response.text
 
+    time.now = pickup + timedelta(hours=3)  # every pickup time has come
     for booking in (ride_1, no_show, ride_2):
         response = await ops.post(
             f"/v1/ops/bookings/{booking['id']}/assign", {"driver_id": driver.id}
